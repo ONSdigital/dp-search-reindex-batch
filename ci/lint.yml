@@ -1,0 +1,15 @@
+---
+
+platform: linux
+
+image_resource:
+  type: docker-image
+  source:
+    repository: golangci/golangci-lint
+    tag: v1.50
+
+inputs:
+  - name: dp-search-reindex-batch
+
+run:
+  path: dp-search-reindex-batch/ci/scripts/lint.sh

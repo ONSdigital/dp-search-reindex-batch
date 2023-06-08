@@ -1,0 +1,21 @@
+---
+
+platform: linux
+
+image_resource:
+  type: docker-image
+  source:
+    repository: golang
+    tag: 1.20.5
+
+inputs:
+  - name: dp-search-reindex-batch
+
+outputs:
+  - name: build
+
+caches:
+  - path: go/
+
+run:
+  path: dp-search-reindex-batch/ci/scripts/build.sh
