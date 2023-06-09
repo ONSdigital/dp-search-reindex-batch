@@ -1,9 +1,10 @@
 # dp-search-reindex-batch
-Search Reindexing Batch Job
+
+Batch nomad job for reindexing search
 
 ### Getting started
 
-* Run `make debug` to run application on http://localhost:
+* Run `make debug` to run application
 * Run * Run `make help` to see full list of make targets
 
 ### Dependencies
@@ -12,12 +13,9 @@ Search Reindexing Batch Job
 
 ### Configuration
 
-| Environment variable         | Default   | Description
-| ---------------------------- | --------- | -----------
-| BIND_ADDR                    | :    | The host and port to bind to
-| GRACEFUL_SHUTDOWN_TIMEOUT    | 5s        | The graceful shutdown timeout in seconds (`time.Duration` format)
-| HEALTHCHECK_INTERVAL         | 30s       | Time between self-healthchecks (`time.Duration` format)
-| HEALTHCHECK_CRITICAL_TIMEOUT | 90s       | Time to wait until an unhealthy dependent propagates its state to make this app unhealthy (`time.Duration` format)
+| Environment variable | Default     | Description |
+|----------------------|-------------|-------------|
+| SOME_VALUE           | "something" | Some value  |
 
 ### Contributing
 

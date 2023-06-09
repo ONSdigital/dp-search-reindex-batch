@@ -1,17 +1,12 @@
 package config
 
 import (
-	"time"
-
 	"github.com/kelseyhightower/envconfig"
 )
 
 // Config represents service configuration for dp-search-reindex-batch
 type Config struct {
-	BindAddr                   string        `envconfig:"BIND_ADDR"`
-	GracefulShutdownTimeout    time.Duration `envconfig:"GRACEFUL_SHUTDOWN_TIMEOUT"`
-	HealthCheckInterval        time.Duration `envconfig:"HEALTHCHECK_INTERVAL"`
-	HealthCheckCriticalTimeout time.Duration `envconfig:"HEALTHCHECK_CRITICAL_TIMEOUT"`
+	SomeValue string `envconfig:"SOME_VALUE"`
 }
 
 var cfg *Config
@@ -24,10 +19,7 @@ func Get() (*Config, error) {
 	}
 
 	cfg = &Config{
-		BindAddr:                   "localhost:",
-		GracefulShutdownTimeout:    5 * time.Second,
-		HealthCheckInterval:        30 * time.Second,
-		HealthCheckCriticalTimeout: 90 * time.Second,
+		SomeValue: "something",
 	}
 
 	return cfg, envconfig.Process("", cfg)
