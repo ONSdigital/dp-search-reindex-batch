@@ -14,7 +14,12 @@ type Result struct {
 }
 
 // Run runs the task
-func (c *Task) Run(_ context.Context) (*Result, error) {
+func (c *Task) Run(ctx context.Context) (*Result, error) {
+	err := reindex(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	return &Result{
 		Success: true,
 	}, nil
