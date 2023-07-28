@@ -84,7 +84,7 @@ func reindex(ctx context.Context) error {
 		panic(err)
 	}
 	hcClienter.SetMaxRetries(2)
-	hcClienter.SetTimeout(30 * time.Second) // Published Index takes about 10s to return so add a bit more
+	hcClienter.SetTimeout(2 * time.Minute) // Published Index takes about 10s to return (>1m in sandbox) so add a bit more
 
 	zebClient := zebedee.NewClientWithClienter(cfg.zebedeeURL, hcClienter)
 	if !cfg.IgnoreZebedee && zebClient == nil {
