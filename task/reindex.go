@@ -125,9 +125,13 @@ func reindex(ctx context.Context) error {
 	datasetChan, _ := extractDatasets(ctx, datasetClient, cfg)
 	editionChan, _ := retrieveDatasetEditions(ctx, datasetClient, datasetChan, cfg.ServiceAuthToken)
 	metadataChan, _ := retrieveLatestMetadata(ctx, datasetClient, editionChan, cfg.ServiceAuthToken)
+	transformedMetaChan := metaDataTransformer(ctx, metadataChan)
+
 	urisChan := uriProducer(ctx, zebClient, cfg)
 	extractedChan, extractionFailuresChan := docExtractor(ctx, zebClient, urisChan, maxConcurrentExtractions)
-	transformedChan := docTransformer(ctx, extractedChan, metadataChan)
+	transformedDocChan := docTransformer(ctx, extractedChan)
+
+	transformedChan := joinDocChannels(ctx, transformedDocChan, transformedMetaChan)
 	indexedChan := docIndexer(ctx, esClient, transformedChan, maxConcurrentIndexings)
 
 	summarize(ctx, indexedChan, extractionFailuresChan)
@@ -199,15 +203,15 @@ func extractDoc(ctx context.Context, z clients.ZebedeeClient, uriChan <-chan str
 	}
 }
 
-func docTransformer(ctx context.Context, extractedChan chan Document, metadataChan chan *dataset.Metadata) chan Document {
+func docTransformer(ctx context.Context, extractedChan chan Document) chan Document {
 	transformedChan := make(chan Document, maxConcurrentExtractions)
 	go func() {
 		var wg sync.WaitGroup
 		for i := 0; i < maxConcurrentExtractions; i++ {
-			wg.Add(2)
+			wg.Add(1)
 			go func(wg *sync.WaitGroup) {
-				transformZebedeeDoc(ctx, extractedChan, transformedChan, wg)
-				transformMetadataDoc(ctx, metadataChan, transformedChan, wg)
+				transformZebedeeDoc(ctx, extractedChan, transformedChan)
+				wg.Done()
 			}(&wg)
 		}
 		wg.Wait()
@@ -217,41 +221,74 @@ func docTransformer(ctx context.Context, extractedChan chan Document, metadataCh
 	return transformedChan
 }
 
-func transformZebedeeDoc(ctx context.Context, extractedChan chan Document, transformedChan chan<- Document, wg *sync.WaitGroup) {
-	defer wg.Done()
-	var wg2 sync.WaitGroup
-	for extractedDoc := range extractedChan {
-		wg2.Add(1)
-		go func(extractedDoc Document) {
-			defer wg2.Done()
-			var zebedeeData extractorModels.ZebedeeData
-			err := json.Unmarshal(extractedDoc.Body, &zebedeeData)
-			if err != nil {
-				log.Fatal(ctx, "error while attempting to unmarshal zebedee response into zebedeeData", err) // TODO proper error handling
-				panic(err)
-			}
-			exporterEventData := extractorModels.MapZebedeeDataToSearchDataImport(zebedeeData, -1)
-			importerEventData := convertToSearchDataModel(exporterEventData)
-			esModel := transform.NewTransformer().TransformEventModelToEsModel(&importerEventData)
-
-			body, err := json.Marshal(esModel)
-			if err != nil {
-				log.Fatal(ctx, "error marshal to json", err) // TODO error handling
-				panic(err)
-			}
-
-			transformedDoc := Document{
-				ID:   exporterEventData.UID,
-				URI:  extractedDoc.URI,
-				Body: body,
-			}
-			transformedChan <- transformedDoc
-		}(extractedDoc)
-	}
-	wg2.Wait()
+func metaDataTransformer(ctx context.Context, metadataChan chan *dataset.Metadata) chan Document {
+	transformedChan := make(chan Document, maxConcurrentExtractions)
+	go func() {
+		var wg sync.WaitGroup
+		for i := 0; i < maxConcurrentExtractions; i++ {
+			wg.Add(1)
+			go func(wg *sync.WaitGroup) {
+				transformMetadataDoc(ctx, metadataChan, transformedChan)
+				wg.Done()
+			}(&wg)
+		}
+		wg.Wait()
+		close(transformedChan)
+		log.Info(ctx, "finished transforming metadata")
+	}()
+	return transformedChan
 }
 
-func transformMetadataDoc(ctx context.Context, metadataChan chan *dataset.Metadata, transformedChan chan<- Document, wg *sync.WaitGroup) {
+func joinDocChannels(ctx context.Context, inChans ...chan Document) chan Document {
+	outChan := make(chan Document, maxConcurrentExtractions)
+	go func() {
+		var wg sync.WaitGroup
+
+		for _, inChan := range inChans {
+			wg.Add(1)
+			go func(i chan Document) {
+				defer wg.Done()
+				for d := range i {
+					outChan <- d
+				}
+			}(inChan)
+		}
+		wg.Wait()
+		close(outChan)
+
+		log.Info(ctx, "finished joining transformed docs channels")
+	}()
+	return outChan
+}
+
+func transformZebedeeDoc(ctx context.Context, extractedChan chan Document, transformedChan chan<- Document) {
+	for extractedDoc := range extractedChan {
+		var zebedeeData extractorModels.ZebedeeData
+		err := json.Unmarshal(extractedDoc.Body, &zebedeeData)
+		if err != nil {
+			log.Fatal(ctx, "error while attempting to unmarshal zebedee response into zebedeeData", err) // TODO proper error handling
+			panic(err)
+		}
+		exporterEventData := extractorModels.MapZebedeeDataToSearchDataImport(zebedeeData, -1)
+		importerEventData := convertToSearchDataModel(exporterEventData)
+		esModel := transform.NewTransformer().TransformEventModelToEsModel(&importerEventData)
+
+		body, err := json.Marshal(esModel)
+		if err != nil {
+			log.Fatal(ctx, "error marshal to json", err) // TODO error handling
+			panic(err)
+		}
+
+		transformedDoc := Document{
+			ID:   exporterEventData.UID,
+			URI:  extractedDoc.URI,
+			Body: body,
+		}
+		transformedChan <- transformedDoc
+	}
+}
+
+func transformMetadataDoc(ctx context.Context, metadataChan chan *dataset.Metadata, transformedChan chan<- Document) {
 	for m := range metadataChan {
 		uri := extractorModels.GetURI(m)
 
@@ -284,7 +321,6 @@ func transformMetadataDoc(ctx context.Context, metadataChan chan *dataset.Metada
 		esModel := transform.NewTransformer().TransformEventModelToEsModel(&importerEventData)
 		body, err := json.Marshal(esModel)
 		if err != nil {
-			wg.Done()
 			log.Fatal(ctx, "error marshal to json", err) // TODO error handling
 			panic(err)
 		}
@@ -296,7 +332,6 @@ func transformMetadataDoc(ctx context.Context, metadataChan chan *dataset.Metada
 		}
 		transformedChan <- transformedDoc
 	}
-	wg.Done()
 }
 
 func docIndexer(ctx context.Context, dpEsIndexClient dpEsClient.Client, transformedChan chan Document, maxIndexings int) chan bool {
@@ -306,24 +341,16 @@ func docIndexer(ctx context.Context, dpEsIndexClient dpEsClient.Client, transfor
 
 		indexName := createIndexName("ons")
 
+		log.Info(ctx, "creating index", log.Data{"indexName": indexName})
 		err := dpEsIndexClient.CreateIndex(ctx, indexName, elasticsearch.GetSearchIndexSettings())
 		if err != nil {
 			log.Fatal(ctx, "error creating index", err)
 			panic(err)
 		}
-
 		log.Info(ctx, "index created", log.Data{"indexName": indexName})
 
-		var wg sync.WaitGroup
+		indexDoc(ctx, dpEsIndexClient, transformedChan, indexedChan, indexName)
 
-		for w := 0; w < maxIndexings; w++ {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				indexDoc(ctx, dpEsIndexClient, transformedChan, indexedChan, indexName)
-			}()
-		}
-		wg.Wait()
 		dpEsIndexClient.BulkIndexClose(ctx)
 		log.Info(ctx, "finished indexing docs")
 
