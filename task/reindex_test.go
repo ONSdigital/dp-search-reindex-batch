@@ -79,7 +79,8 @@ func TestTransformMetadataDoc(t *testing.T) {
 			wg := &sync.WaitGroup{}
 			wg.Add(1)
 			go func(waitGroup *sync.WaitGroup) {
-				transformMetadataDoc(ctx, metadataChan, transformedChan, waitGroup)
+				transformMetadataDoc(ctx, metadataChan, transformedChan)
+				wg.Done()
 			}(wg)
 
 			Convey("Then the expected elasticsearch document is sent to the transformed channel", func() {
@@ -151,7 +152,8 @@ func TestTransformMetadataDoc(t *testing.T) {
 			wg := &sync.WaitGroup{}
 			wg.Add(1)
 			go func(waitGroup *sync.WaitGroup) {
-				transformMetadataDoc(ctx, metadataChan, transformedChan, waitGroup)
+				transformMetadataDoc(ctx, metadataChan, transformedChan)
+				wg.Done()
 			}(wg)
 
 			Convey("Then the expected elasticsearch document is sent to the transformed channel", func() {
