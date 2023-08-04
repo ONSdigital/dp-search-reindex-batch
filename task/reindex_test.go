@@ -48,6 +48,7 @@ func TestTransformMetadataDoc(t *testing.T) {
 	Convey("Given a metadata channel and a transformed document channel", t, func() {
 		metadataChan := make(chan *dataset.Metadata, 1)
 		transformedChan := make(chan Document, 1)
+		tracker := &Tracker{}
 
 		Convey("When a generic dataset metadata is sent to the channel and consumed by transformMetadataDoc", func() {
 			sent := &dataset.Metadata{
@@ -79,7 +80,7 @@ func TestTransformMetadataDoc(t *testing.T) {
 			wg := &sync.WaitGroup{}
 			wg.Add(1)
 			go func(waitGroup *sync.WaitGroup) {
-				transformMetadataDoc(ctx, metadataChan, transformedChan)
+				transformMetadataDoc(ctx, tracker, metadataChan, transformedChan)
 				wg.Done()
 			}(wg)
 
@@ -101,6 +102,7 @@ func TestTransformMetadataDoc(t *testing.T) {
 	Convey("Given a metadata channel and a transformed document channel", t, func() {
 		metadataChan := make(chan *dataset.Metadata, 1)
 		transformedChan := make(chan Document, 1)
+		tracker := &Tracker{}
 
 		Convey("When a cantabular type dataset metadata is sent to the channel and consumed by transformMetadataDoc", func() {
 			areaTypeTrue := true
@@ -152,7 +154,7 @@ func TestTransformMetadataDoc(t *testing.T) {
 			wg := &sync.WaitGroup{}
 			wg.Add(1)
 			go func(waitGroup *sync.WaitGroup) {
-				transformMetadataDoc(ctx, metadataChan, transformedChan)
+				transformMetadataDoc(ctx, tracker, metadataChan, transformedChan)
 				wg.Done()
 			}(wg)
 
@@ -209,9 +211,10 @@ func TestExtractDatasets(t *testing.T) {
 				}, nil
 			},
 		}
+		tracker := &Tracker{}
 
 		Convey("Then extractDatasets with a paginationLimit of 2 and TestSubset=true send only the 2 first datasets to the dataset channel", func() {
-			datasetChan, wg := extractDatasets(ctx, cli, cliConfig{
+			datasetChan, wg := extractDatasets(ctx, tracker, cli, cliConfig{
 				ServiceAuthToken: testAuthToken,
 				TestSubset:       true,
 				PaginationLimit:  2,
@@ -232,7 +235,7 @@ func TestExtractDatasets(t *testing.T) {
 		})
 
 		Convey("Then extractDatasets with a paginationLimit of 2 and TestSubset=false send all the datasets to the dataset channel", func() {
-			datasetChan, wg := extractDatasets(ctx, cli, cliConfig{
+			datasetChan, wg := extractDatasets(ctx, tracker, cli, cliConfig{
 				ServiceAuthToken: testAuthToken,
 				TestSubset:       false,
 				PaginationLimit:  2,
@@ -290,6 +293,7 @@ func TestRetrieveDatasetEditions(t *testing.T) {
 			},
 		}
 		datasetChan := make(chan dataset.Dataset, 1)
+		tracker := &Tracker{}
 
 		Convey("When a valid dataset is sent to the dataset channel and consumed by retrieveDatasetEditions", func() {
 			datasetChan <- dataset.Dataset{
@@ -303,7 +307,7 @@ func TestRetrieveDatasetEditions(t *testing.T) {
 			}
 			close(datasetChan)
 
-			editionChan, _ := retrieveDatasetEditions(ctx, cli, datasetChan, testAuthToken)
+			editionChan, _ := retrieveDatasetEditions(ctx, tracker, cli, datasetChan, testAuthToken)
 
 			Convey("Then the expected editions and isBasedOn are sent to the edition channel returned by retrieveDatasetEditions", func() {
 				ed1 := <-editionChan
@@ -346,6 +350,7 @@ func TestRetrieveLatestMetadata(t *testing.T) {
 			},
 		}
 		editionMetadata := make(chan DatasetEditionMetadata, 1)
+		tracker := &Tracker{}
 
 		Convey("When a dataset edition metadata is sent to the edition metadata channel and consumed by retrieveLatestMetadata", func() {
 			editionMetadata <- DatasetEditionMetadata{
@@ -355,7 +360,7 @@ func TestRetrieveLatestMetadata(t *testing.T) {
 			}
 			close(editionMetadata)
 
-			metadataChan, _ := retrieveLatestMetadata(ctx, cli, editionMetadata, testAuthToken)
+			metadataChan, _ := retrieveLatestMetadata(ctx, tracker, cli, editionMetadata, testAuthToken)
 
 			Convey("Then the expected metadata and isBasedOn are sent to the metadataChannel", func() {
 				m := <-metadataChan
@@ -391,6 +396,7 @@ func TestIndexDoc(t *testing.T) {
 		}
 		transformedChan := make(chan Document, 1)
 		indexedChan := make(chan bool)
+		tracker := &Tracker{}
 
 		Convey("When a Document is sent to the transformedChan and consumed by indexDoc", func() {
 			transformedChan <- Document{
@@ -404,7 +410,7 @@ func TestIndexDoc(t *testing.T) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				indexDoc(ctx, esClient, transformedChan, indexedChan, testIndexName)
+				indexDoc(ctx, tracker, esClient, transformedChan, indexedChan, testIndexName)
 			}()
 
 			Convey("Then the document is indexed and the expected bulkAdd call is performed", func() {
@@ -438,6 +444,7 @@ func TestIndexDoc(t *testing.T) {
 		}
 		transformedChan := make(chan Document, 1)
 		indexedChan := make(chan bool)
+		tracker := &Tracker{}
 
 		Convey("When a Document is sent to the transformedChan and consumed by indexDoc", func() {
 			transformedChan <- Document{
@@ -451,7 +458,7 @@ func TestIndexDoc(t *testing.T) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				indexDoc(ctx, esClient, transformedChan, indexedChan, testIndexName)
+				indexDoc(ctx, tracker, esClient, transformedChan, indexedChan, testIndexName)
 			}()
 
 			Convey("Then the document is not indexed and the expected bulkAdd call is performed", func() {
@@ -486,6 +493,7 @@ func TestIndexDoc(t *testing.T) {
 		}
 		transformedChan := make(chan Document, 1)
 		indexedChan := make(chan bool)
+		tracker := &Tracker{}
 
 		Convey("When a Document is sent to the transformedChan and consumed by indexDoc", func() {
 			transformedChan <- Document{
@@ -499,7 +507,7 @@ func TestIndexDoc(t *testing.T) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				indexDoc(ctx, esClient, transformedChan, indexedChan, testIndexName)
+				indexDoc(ctx, tracker, esClient, transformedChan, indexedChan, testIndexName)
 			}()
 
 			Convey("Then the document is not indexed and the expected bulkAdd call is performed", func() {
