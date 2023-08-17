@@ -277,7 +277,7 @@ func transformZebedeeDoc(ctx context.Context, tracker *Tracker, extractedChan ch
 		if zebedeeData.Description.Title == "" {
 			// Don't want to index things without title
 			tracker.Inc("untransformed-notitle")
-			return
+			continue // move on to the next extracted doc
 		}
 		exporterEventData := extractorModels.MapZebedeeDataToSearchDataImport(zebedeeData, -1)
 		importerEventData := convertToSearchDataModel(exporterEventData)
