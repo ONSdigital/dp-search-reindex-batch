@@ -10,7 +10,7 @@ require (
 	github.com/ONSdigital/dp-search-data-extractor v1.1.0
 	github.com/ONSdigital/dp-search-data-importer v1.0.0
 	github.com/ONSdigital/log.go/v2 v2.4.1
-	github.com/elastic/go-elasticsearch/v7 v7.17.10
+	github.com/elastic/go-elasticsearch/v7 v7.10.0
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/pkg/errors v0.9.1
 	github.com/smartystreets/goconvey v1.8.0
