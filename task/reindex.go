@@ -22,15 +22,14 @@ import (
 	extractorModels "github.com/ONSdigital/dp-search-data-extractor/models"
 	importerModels "github.com/ONSdigital/dp-search-data-importer/models"
 	"github.com/ONSdigital/dp-search-data-importer/transform"
+	"github.com/ONSdigital/dp-search-reindex-batch/config"
 	"github.com/ONSdigital/log.go/v2/log"
 	"github.com/elastic/go-elasticsearch/v7/esutil"
-
-	"github.com/ONSdigital/dp-search-reindex-batch/config"
 )
 
 const (
 	defaultChannelBuffer = 20
-	aws_es_service       = "es"
+	awsESService         = "es"
 )
 
 // DatasetEditionMetadata holds the necessary information for a dataset edition, plus isBasedOn
@@ -68,7 +67,7 @@ func reindex(ctx context.Context, cfg *config.Config) error {
 	esHTTPClient := hcClienter
 	if cfg.SignESRequests {
 		log.Info(ctx, "use a signing roundtripper client")
-		awsSignerRT, err := awsauth.NewAWSSignerRoundTripper("", "", cfg.AwsRegion, aws_es_service,
+		awsSignerRT, err := awsauth.NewAWSSignerRoundTripper("", "", cfg.AwsRegion, awsESService,
 			awsauth.Options{TlsInsecureSkipVerify: cfg.AwsSecSkipVerify})
 		if err != nil {
 			log.Fatal(ctx, "Failed to create http signer", err)

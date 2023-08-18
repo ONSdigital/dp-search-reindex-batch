@@ -2,6 +2,7 @@ package task
 
 import (
 	"context"
+
 	"github.com/ONSdigital/dp-search-reindex-batch/config"
 )
 
