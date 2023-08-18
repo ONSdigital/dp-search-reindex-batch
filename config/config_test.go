@@ -22,14 +22,18 @@ func TestConfig(t *testing.T) {
 				configuration, err = Get() // This Get() is only called once, when inside this function
 				So(err, ShouldBeNil)
 				So(configuration, ShouldResemble, &Config{
-					ZebedeeURL:       "http://localhost:8082",
-					ElasticSearchURL: "http://localhost:11200",
-					SignESRequests:   false,
-					AwsRegion:        "eu-west-2",
-					AwsSecSkipVerify: false,
-					DatasetAPIURL:    "http://localhost:22000",
-					ServiceAuthToken: "",
-					PaginationLimit:  500,
+					ZebedeeURL:             "http://localhost:8082",
+					ElasticSearchURL:       "http://localhost:11200",
+					SignESRequests:         false,
+					AwsRegion:              "eu-west-2",
+					AwsSecSkipVerify:       false,
+					DatasetAPIURL:          "http://localhost:22000",
+					ServiceAuthToken:       "",
+					PaginationLimit:        500,
+					MaxDocumentExtractions: 100,
+					MaxDocumentTransforms:  20,
+					MaxDatasetExtractions:  20,
+					MaxDatasetTransforms:   10,
 				},
 				)
 			})

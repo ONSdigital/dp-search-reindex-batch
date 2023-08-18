@@ -23,7 +23,6 @@ const (
 	testEdition      = "2021"
 	testVersion      = "4"
 	testIndexName    = "ons"
-	testMaxIndexing  = 3
 	testAuthToken    = "testAuthToken"
 )
 
@@ -213,33 +212,8 @@ func TestExtractDatasets(t *testing.T) {
 		}
 		tracker := &Tracker{}
 
-		Convey("Then extractDatasets with a paginationLimit of 2 and TestSubset=true send only the 2 first datasets to the dataset channel", func() {
-			datasetChan, wg := extractDatasets(ctx, tracker, cli, cliConfig{
-				ServiceAuthToken: testAuthToken,
-				TestSubset:       true,
-				PaginationLimit:  2,
-			})
-
-			ds1 := <-datasetChan
-			So(ds1, ShouldResemble, dataset.Dataset{ID: "dataset1"})
-			ds2 := <-datasetChan
-			So(ds2, ShouldResemble, dataset.Dataset{ID: "dataset2"})
-			wg.Wait()
-
-			Convey("And dataset api has been called only once with the expected pagination parameters", func() {
-				So(cli.GetDatasetsCalls(), ShouldHaveLength, 1)
-				So(cli.GetDatasetsCalls()[0].Q.Offset, ShouldEqual, 0)
-				So(cli.GetDatasetsCalls()[0].Q.Limit, ShouldEqual, 2)
-				So(cli.GetDatasetsCalls()[0].ServiceAuthToken, ShouldEqual, testAuthToken)
-			})
-		})
-
-		Convey("Then extractDatasets with a paginationLimit of 2 and TestSubset=false send all the datasets to the dataset channel", func() {
-			datasetChan, wg := extractDatasets(ctx, tracker, cli, cliConfig{
-				ServiceAuthToken: testAuthToken,
-				TestSubset:       false,
-				PaginationLimit:  2,
-			})
+		Convey("Then extractDatasets with a paginationLimit of 2 send all the datasets to the dataset channel", func() {
+			datasetChan, wg := extractDatasets(ctx, tracker, cli, testAuthToken, 2)
 
 			ds1 := <-datasetChan
 			So(ds1, ShouldResemble, dataset.Dataset{ID: "dataset1"})
@@ -307,7 +281,7 @@ func TestRetrieveDatasetEditions(t *testing.T) {
 			}
 			close(datasetChan)
 
-			editionChan, _ := retrieveDatasetEditions(ctx, tracker, cli, datasetChan, testAuthToken)
+			editionChan, _ := retrieveDatasetEditions(ctx, tracker, cli, datasetChan, testAuthToken, 10)
 
 			Convey("Then the expected editions and isBasedOn are sent to the edition channel returned by retrieveDatasetEditions", func() {
 				ed1 := <-editionChan
@@ -360,7 +334,7 @@ func TestRetrieveLatestMetadata(t *testing.T) {
 			}
 			close(editionMetadata)
 
-			metadataChan, _ := retrieveLatestMetadata(ctx, tracker, cli, editionMetadata, testAuthToken)
+			metadataChan, _ := retrieveLatestMetadata(ctx, tracker, cli, editionMetadata, testAuthToken, 10)
 
 			Convey("Then the expected metadata and isBasedOn are sent to the metadataChannel", func() {
 				m := <-metadataChan

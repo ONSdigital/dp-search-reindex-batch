@@ -28,30 +28,10 @@ import (
 	"github.com/ONSdigital/dp-search-reindex-batch/config"
 )
 
-var (
-	maxConcurrentExtractions = 20
-	maxConcurrentIndexings   = 30
-	DefaultPaginationLimit   = 500
+const (
+	defaultChannelBuffer = 20
+	aws_es_service       = "es"
 )
-
-type cliConfig struct {
-	aws              AWSConfig
-	zebedeeURL       string
-	datasetURL       string
-	esURL            string
-	signRequests     bool
-	ServiceAuthToken string `json:"-"`
-	PaginationLimit  int
-	TestSubset       bool // Set this flag to true to request only one batch of datasets from Dataset API
-	IgnoreZebedee    bool // Set this flag to true to avoid requesting zebedee datasets
-}
-
-type AWSConfig struct {
-	filename              string
-	region                string
-	service               string
-	tlsInsecureSkipVerify bool
-}
 
 // DatasetEditionMetadata holds the necessary information for a dataset edition, plus isBasedOn
 type DatasetEditionMetadata struct {
@@ -66,16 +46,8 @@ type Document struct {
 	Body []byte
 }
 
-func reindex(ctx context.Context) error {
-	batchCfg, err := config.Get()
-	if err != nil {
-		return err // TODO log then wrap err
-	}
-
-	// TODO refactor existing code below from old dp-search-api/cmd/reindex/main.go version
-
-	cfg := getConfig(ctx, batchCfg)
-	log.Info(ctx, "Running reindex script", log.Data{"name": Name, "config": cfg})
+func reindex(ctx context.Context, cfg *config.Config) error {
+	log.Info(ctx, "Running reindex script", log.Data{"config": cfg})
 
 	hcClienter := dphttp2.NewClient()
 	if hcClienter == nil {
@@ -86,18 +58,18 @@ func reindex(ctx context.Context) error {
 	hcClienter.SetMaxRetries(2)
 	hcClienter.SetTimeout(2 * time.Minute) // Published Index takes about 10s to return (>1m in sandbox) so add a bit more
 
-	zebClient := zebedee.NewClientWithClienter(cfg.zebedeeURL, hcClienter)
-	if !cfg.IgnoreZebedee && zebClient == nil {
+	zebClient := zebedee.NewClientWithClienter(cfg.ZebedeeURL, hcClienter)
+	if zebClient == nil {
 		err := errors.New("failed to create zebedee client")
 		log.Fatal(ctx, err.Error(), err)
 		panic(err)
 	}
 
 	esHTTPClient := hcClienter
-	if cfg.signRequests {
+	if cfg.SignESRequests {
 		log.Info(ctx, "use a signing roundtripper client")
-		awsSignerRT, err := awsauth.NewAWSSignerRoundTripper(cfg.aws.filename, cfg.aws.filename, cfg.aws.region, cfg.aws.service,
-			awsauth.Options{TlsInsecureSkipVerify: cfg.aws.tlsInsecureSkipVerify})
+		awsSignerRT, err := awsauth.NewAWSSignerRoundTripper("", "", cfg.AwsRegion, aws_es_service,
+			awsauth.Options{TlsInsecureSkipVerify: cfg.AwsSecSkipVerify})
 		if err != nil {
 			log.Fatal(ctx, "Failed to create http signer", err)
 			panic(err)
@@ -106,10 +78,10 @@ func reindex(ctx context.Context) error {
 		esHTTPClient = dphttp2.NewClientWithTransport(awsSignerRT)
 	}
 
-	datasetClient := dataset.NewAPIClient(cfg.datasetURL)
+	datasetClient := dataset.NewAPIClient(cfg.DatasetAPIURL)
 	esClient, esClientErr := dpEs.NewClient(dpEsClient.Config{
 		ClientLib: dpEsClient.GoElasticV710,
-		Address:   cfg.esURL,
+		Address:   cfg.ElasticSearchURL,
 		Transport: esHTTPClient,
 	})
 	if esClientErr != nil {
@@ -124,17 +96,17 @@ func reindex(ctx context.Context) error {
 
 	t := &Tracker{}
 
-	datasetChan, _ := extractDatasets(ctx, t, datasetClient, cfg)
-	editionChan, _ := retrieveDatasetEditions(ctx, t, datasetClient, datasetChan, cfg.ServiceAuthToken)
-	metadataChan, _ := retrieveLatestMetadata(ctx, t, datasetClient, editionChan, cfg.ServiceAuthToken)
-	transformedMetaChan := metaDataTransformer(ctx, t, metadataChan)
+	datasetChan, _ := extractDatasets(ctx, t, datasetClient, cfg.ServiceAuthToken, cfg.PaginationLimit)
+	editionChan, _ := retrieveDatasetEditions(ctx, t, datasetClient, datasetChan, cfg.ServiceAuthToken, cfg.MaxDatasetExtractions)
+	metadataChan, _ := retrieveLatestMetadata(ctx, t, datasetClient, editionChan, cfg.ServiceAuthToken, cfg.MaxDatasetExtractions)
+	transformedMetaChan := metaDataTransformer(ctx, t, metadataChan, cfg.MaxDatasetTransforms)
 
-	urisChan := uriProducer(ctx, t, zebClient, cfg)
-	extractedChan, extractionFailuresChan := docExtractor(ctx, t, zebClient, urisChan, maxConcurrentExtractions)
-	transformedDocChan := docTransformer(ctx, t, extractedChan)
+	urisChan := uriProducer(ctx, t, zebClient)
+	extractedChan, extractionFailuresChan := docExtractor(ctx, t, zebClient, urisChan, cfg.MaxDocumentExtractions)
+	transformedDocChan := docTransformer(ctx, t, extractedChan, cfg.MaxDocumentTransforms)
 
-	transformedChan := joinDocChannels(ctx, t, transformedDocChan, transformedMetaChan)
-	indexedChan := docIndexer(ctx, t, esClient, transformedChan, maxConcurrentIndexings)
+	joinedChan := joinDocChannels(ctx, t, transformedDocChan, transformedMetaChan)
+	indexedChan := docIndexer(ctx, t, esClient, joinedChan)
 
 	summarize(ctx, t, indexedChan, extractionFailuresChan)
 	cleanOldIndices(ctx, esClient)
@@ -142,11 +114,11 @@ func reindex(ctx context.Context) error {
 	return nil
 }
 
-func uriProducer(ctx context.Context, tracker *Tracker, z clients.ZebedeeClient, cfg cliConfig) chan string {
-	uriChan := make(chan string, maxConcurrentExtractions)
+func uriProducer(ctx context.Context, tracker *Tracker, z clients.ZebedeeClient) chan string {
+	uriChan := make(chan string, defaultChannelBuffer)
 	go func() {
 		defer close(uriChan)
-		items := getPublishedURIs(ctx, z, cfg)
+		items := getPublishedURIs(ctx, z)
 		for _, item := range items {
 			uriChan <- item.URI
 			tracker.Inc("uri")
@@ -156,10 +128,7 @@ func uriProducer(ctx context.Context, tracker *Tracker, z clients.ZebedeeClient,
 	return uriChan
 }
 
-func getPublishedURIs(ctx context.Context, z clients.ZebedeeClient, cfg cliConfig) []zebedee.PublishedIndexItem {
-	if cfg.IgnoreZebedee {
-		return []zebedee.PublishedIndexItem{}
-	}
+func getPublishedURIs(ctx context.Context, z clients.ZebedeeClient) []zebedee.PublishedIndexItem {
 	index, err := z.GetPublishedIndex(ctx, &zebedee.PublishedIndexRequestParams{})
 	if err != nil {
 		log.Fatal(ctx, "fatal error getting index from zebedee", err)
@@ -170,8 +139,8 @@ func getPublishedURIs(ctx context.Context, z clients.ZebedeeClient, cfg cliConfi
 }
 
 func docExtractor(ctx context.Context, tracker *Tracker, z clients.ZebedeeClient, uriChan chan string, maxExtractions int) (extractedChan chan Document, extractionFailuresChan chan string) {
-	extractedChan = make(chan Document, maxExtractions)
-	extractionFailuresChan = make(chan string, maxExtractions)
+	extractedChan = make(chan Document, defaultChannelBuffer)
+	extractionFailuresChan = make(chan string, defaultChannelBuffer)
 	go func() {
 		defer close(extractedChan)
 		defer close(extractionFailuresChan)
@@ -207,11 +176,11 @@ func extractDoc(ctx context.Context, tracker *Tracker, z clients.ZebedeeClient, 
 	}
 }
 
-func docTransformer(ctx context.Context, tracker *Tracker, extractedChan chan Document) chan Document {
-	transformedChan := make(chan Document, maxConcurrentExtractions)
+func docTransformer(ctx context.Context, tracker *Tracker, extractedChan chan Document, maxTransforms int) chan Document {
+	transformedChan := make(chan Document, defaultChannelBuffer)
 	go func() {
 		var wg sync.WaitGroup
-		for i := 0; i < maxConcurrentExtractions; i++ {
+		for i := 0; i < maxTransforms; i++ {
 			wg.Add(1)
 			go func(wg *sync.WaitGroup) {
 				transformZebedeeDoc(ctx, tracker, extractedChan, transformedChan)
@@ -225,11 +194,11 @@ func docTransformer(ctx context.Context, tracker *Tracker, extractedChan chan Do
 	return transformedChan
 }
 
-func metaDataTransformer(ctx context.Context, tracker *Tracker, metadataChan chan *dataset.Metadata) chan Document {
-	transformedChan := make(chan Document, maxConcurrentExtractions)
+func metaDataTransformer(ctx context.Context, tracker *Tracker, metadataChan chan *dataset.Metadata, maxTransforms int) chan Document {
+	transformedChan := make(chan Document, defaultChannelBuffer)
 	go func() {
 		var wg sync.WaitGroup
-		for i := 0; i < maxConcurrentExtractions; i++ {
+		for i := 0; i < maxTransforms; i++ {
 			wg.Add(1)
 			go func(wg *sync.WaitGroup) {
 				transformMetadataDoc(ctx, tracker, metadataChan, transformedChan)
@@ -244,7 +213,7 @@ func metaDataTransformer(ctx context.Context, tracker *Tracker, metadataChan cha
 }
 
 func joinDocChannels(ctx context.Context, tracker *Tracker, inChans ...chan Document) chan Document {
-	outChan := make(chan Document, maxConcurrentExtractions)
+	outChan := make(chan Document, defaultChannelBuffer)
 	go func() {
 		var wg sync.WaitGroup
 
@@ -346,8 +315,8 @@ func transformMetadataDoc(ctx context.Context, tracker *Tracker, metadataChan ch
 	}
 }
 
-func docIndexer(ctx context.Context, tracker *Tracker, dpEsIndexClient dpEsClient.Client, transformedChan chan Document, maxIndexings int) chan bool {
-	indexedChan := make(chan bool, maxIndexings)
+func docIndexer(ctx context.Context, tracker *Tracker, dpEsIndexClient dpEsClient.Client, transformedChan chan Document) chan bool {
+	indexedChan := make(chan bool, defaultChannelBuffer)
 	go func() {
 		defer close(indexedChan)
 
@@ -498,8 +467,8 @@ func deleteIndicies(ctx context.Context, dpEsIndexClient dpEsClient.Client, indi
 	log.Info(ctx, "indicies deleted", log.Data{"deleted_indicies": indicies})
 }
 
-func extractDatasets(ctx context.Context, tracker *Tracker, datasetClient clients.DatasetAPIClient, cfg cliConfig) (chan dataset.Dataset, *sync.WaitGroup) {
-	datasetChan := make(chan dataset.Dataset, maxConcurrentExtractions)
+func extractDatasets(ctx context.Context, tracker *Tracker, datasetClient clients.DatasetAPIClient, serviceAuthToken string, paginationLimit int) (chan dataset.Dataset, *sync.WaitGroup) {
+	datasetChan := make(chan dataset.Dataset, defaultChannelBuffer)
 	var wg sync.WaitGroup
 
 	// extractAll extracts all datasets from datasetAPI in batches of up to 'PaginationLimit' size
@@ -512,9 +481,9 @@ func extractDatasets(ctx context.Context, tracker *Tracker, datasetClient client
 		var err error
 		var offset = 0
 		for {
-			list, err = datasetClient.GetDatasets(ctx, "", cfg.ServiceAuthToken, "", &dataset.QueryParams{
+			list, err = datasetClient.GetDatasets(ctx, "", serviceAuthToken, "", &dataset.QueryParams{
 				Offset: offset,
-				Limit:  cfg.PaginationLimit,
+				Limit:  paginationLimit,
 			})
 			if err != nil {
 				log.Fatal(ctx, "error retrieving datasets", err)
@@ -533,7 +502,7 @@ func extractDatasets(ctx context.Context, tracker *Tracker, datasetClient client
 				datasetChan <- list.Items[i]
 				tracker.Inc("dataset")
 			}
-			offset += cfg.PaginationLimit
+			offset += paginationLimit
 
 			if offset > list.TotalCount {
 				break
@@ -541,44 +510,18 @@ func extractDatasets(ctx context.Context, tracker *Tracker, datasetClient client
 		}
 	}
 
-	// extractSome extracts only one batch of size 'PaginationLimit' from datasetAPI
-	extractSome := func() {
-		defer func() {
-			close(datasetChan)
-			wg.Done()
-		}()
-		var list dataset.List
-		var err error
-		var offset = 0
-		list, err = datasetClient.GetDatasets(ctx, "", cfg.ServiceAuthToken, "", &dataset.QueryParams{
-			Offset: offset,
-			Limit:  cfg.PaginationLimit,
-		})
-		if err != nil {
-			log.Fatal(ctx, "error retrieving datasets", err)
-			panic(err)
-		}
-		for i := 0; i < len(list.Items); i++ {
-			datasetChan <- list.Items[i]
-		}
-	}
-
 	wg.Add(1)
-	if cfg.TestSubset {
-		go extractSome()
-	} else {
-		go extractAll()
-	}
+	go extractAll()
 
 	return datasetChan, &wg
 }
 
-func retrieveDatasetEditions(ctx context.Context, tracker *Tracker, datasetClient clients.DatasetAPIClient, datasetChan chan dataset.Dataset, serviceAuthToken string) (chan DatasetEditionMetadata, *sync.WaitGroup) {
-	editionMetadataChan := make(chan DatasetEditionMetadata, maxConcurrentExtractions)
+func retrieveDatasetEditions(ctx context.Context, tracker *Tracker, datasetClient clients.DatasetAPIClient, datasetChan chan dataset.Dataset, serviceAuthToken string, maxExtractions int) (chan DatasetEditionMetadata, *sync.WaitGroup) {
+	editionMetadataChan := make(chan DatasetEditionMetadata, defaultChannelBuffer)
 	var wg sync.WaitGroup
 	go func() {
 		defer close(editionMetadataChan)
-		for i := 0; i < maxConcurrentExtractions; i++ {
+		for i := 0; i < maxExtractions; i++ {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
@@ -614,12 +557,12 @@ func retrieveDatasetEditions(ctx context.Context, tracker *Tracker, datasetClien
 	return editionMetadataChan, &wg
 }
 
-func retrieveLatestMetadata(ctx context.Context, tracker *Tracker, datasetClient clients.DatasetAPIClient, editionMetadata chan DatasetEditionMetadata, serviceAuthToken string) (chan *dataset.Metadata, *sync.WaitGroup) {
-	metadataChan := make(chan *dataset.Metadata, maxConcurrentExtractions)
+func retrieveLatestMetadata(ctx context.Context, tracker *Tracker, datasetClient clients.DatasetAPIClient, editionMetadata chan DatasetEditionMetadata, serviceAuthToken string, maxExtractions int) (chan *dataset.Metadata, *sync.WaitGroup) {
+	metadataChan := make(chan *dataset.Metadata, defaultChannelBuffer)
 	var wg sync.WaitGroup
 	go func() {
 		defer close(metadataChan)
-		for i := 0; i < maxConcurrentExtractions; i++ {
+		for i := 0; i < maxExtractions; i++ {
 			wg.Add(1)
 			go func() {
 				for edMetadata := range editionMetadata {
