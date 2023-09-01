@@ -5,7 +5,7 @@ Batch nomad job for reindexing search
 ### Getting started
 
 * Run `make debug` to run application
-* Run * Run `make help` to see full list of make targets
+* Run `make help` to see full list of make targets
 
 ### Dependencies
 

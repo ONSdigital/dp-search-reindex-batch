@@ -3,6 +3,10 @@ job "dp-search-reindex-batch" {
   region      = "eu"
   type        = "batch"
 
+  meta {
+    run_uuid = "${uuidv4()}"
+  }
+
   group "publishing" {
     count = "{{PUBLISHING_TASK_COUNT}}"
 
