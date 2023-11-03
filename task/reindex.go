@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -168,7 +169,7 @@ func extractDoc(ctx context.Context, tracker *Tracker, z clients.ZebedeeClient, 
 
 		extractedDoc := Document{
 			URI:  uri,
-			Body: body,
+			Body: slices.Clone(body),
 		}
 		extractedChan <- extractedDoc
 		tracker.Inc("doc-extracted")
@@ -239,7 +240,8 @@ func transformZebedeeDoc(ctx context.Context, tracker *Tracker, extractedChan ch
 		var zebedeeData extractorModels.ZebedeeData
 		err := json.Unmarshal(extractedDoc.Body, &zebedeeData)
 		if err != nil {
-			log.Fatal(ctx, "error while attempting to unmarshal zebedee response into zebedeeData", err) // TODO proper error handling
+			log.Fatal(ctx, "error while attempting to unmarshal zebedee response into zebedeeData", err,
+				log.Data{"document": extractedDoc}) // TODO proper error handling
 			panic(err)
 		}
 		if zebedeeData.Description.Title == "" {
