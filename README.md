@@ -4,7 +4,7 @@ Batch nomad job for reindexing search
 
 ### Getting started
 
-* Run `make debug` to run application
+* Run `make debug` to run application (See [Local Prerequisites section](#local-prerequisites) first)
 * Run `make help` to see full list of make targets
 
 ### Dependencies
@@ -27,6 +27,38 @@ Batch nomad job for reindexing search
 | MAX_DOCUMENT_TRANSFORMS     | 20                       | Max number of concurrent Document Transformation workers                   |
 | MAX_DATASET_EXTRACTIONS     | 20                       | Max number of concurrent Dataset Extractions (ie. Dataset API connections) |
 | MAX_DATASET_TRANSFORMS      | 10                       | Max number of concurrent Dataset Transformation workers                    |
+
+### Local Prerequisites
+
+* Requires ElasticSearch 7.10 running on port 11200
+* Requires Zebedee running on port 8082 (and this has a dependency on vault)
+* Requires the Dataset API running on port 22000
+
+NB. The Dataset API requires a mongo database named 'datasets', which must contain the following collections:
+
+* contacts
+* datasets
+* dimension.options
+* editions
+* instances
+* instances_locks
+
+The Dataset API also requires this environment variable to be set to true: DISABLE_GRAPH_DB_DEPENDENCY
+
+Please make sure your elasticsearch server is running locally on localhost:11200 and version of the server is 7.10,
+which is the current supported version. You may use `dp-compose/v2/stacks/search` stack for this.
+
+If you want to run the reindex script locally but loading data from an environment (e.g. `sandbox`), you may
+run `dp ssh` with port forwarding for dataset-api and zebedee (please check the services IPs and ports
+in `https://consul.dp.aws.onsdigital.uk/ui/eu/services`) For example:
+
+```shell
+dp ssh sandbox publishing 2 -p 22000:10.30.138.234:26020
+dp ssh sandbox publishing 1 -p 8082:10.30.138.93:25108
+```
+
+If you do this the service auth token in the configuration will need to be a valid token accepted in the environment you
+are using.
 
 ### Contributing
 
