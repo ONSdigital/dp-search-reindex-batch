@@ -164,7 +164,7 @@ func extractDoc(ctx context.Context, tracker *Tracker, z clients.ZebedeeClient, 
 		body, err := z.GetPublishedData(ctx, uri)
 		if err != nil {
 			extractionFailuresChan <- uri
-			log.Error(ctx, "failed to extract doc from zebedee", err)
+			log.Error(ctx, "failed to extract doc from zebedee", err, log.Data{"uri": uri})
 			continue
 		}
 
