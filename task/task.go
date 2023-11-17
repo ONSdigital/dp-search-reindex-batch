@@ -14,16 +14,20 @@ type Task struct {
 // Result holds final results of a task run
 type Result struct {
 	Success bool
+	Err     error
 }
 
 // Run runs the task
-func (t *Task) Run(ctx context.Context) (*Result, error) {
+func (t *Task) Run(ctx context.Context) *Result {
 	err := reindex(ctx, t.Config)
 	if err != nil {
-		return nil, err
+		return &Result{
+			Success: false,
+			Err:     err,
+		}
 	}
 
 	return &Result{
 		Success: true,
-	}, nil
+	}
 }

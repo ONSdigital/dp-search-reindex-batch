@@ -46,13 +46,13 @@ type Document struct {
 }
 
 func reindex(ctx context.Context, cfg *config.Config) error {
-	log.Info(ctx, "Running reindex script", log.Data{"config": cfg})
+	log.Info(ctx, "running reindex script", log.Data{"config": cfg})
 
 	hcClienter := dphttp2.NewClient()
 	if hcClienter == nil {
 		err := errors.New("failed to create dp http client")
-		log.Fatal(ctx, err.Error(), err)
-		panic(err)
+		log.Error(ctx, err.Error(), err)
+		return err
 	}
 	hcClienter.SetMaxRetries(2)
 	hcClienter.SetTimeout(2 * time.Minute) // Published Index takes about 10s to return (>1m in sandbox) so add a bit more
@@ -60,8 +60,8 @@ func reindex(ctx context.Context, cfg *config.Config) error {
 	zebClient := zebedee.NewClientWithClienter(cfg.ZebedeeURL, hcClienter)
 	if zebClient == nil {
 		err := errors.New("failed to create zebedee client")
-		log.Fatal(ctx, err.Error(), err)
-		panic(err)
+		log.Error(ctx, err.Error(), err)
+		return err
 	}
 
 	esHTTPClient := hcClienter
@@ -70,8 +70,8 @@ func reindex(ctx context.Context, cfg *config.Config) error {
 		awsSignerRT, err := awsauth.NewAWSSignerRoundTripper("", "", cfg.AwsRegion, awsESService,
 			awsauth.Options{TlsInsecureSkipVerify: cfg.AwsSecSkipVerify})
 		if err != nil {
-			log.Fatal(ctx, "Failed to create http signer", err)
-			panic(err)
+			log.Error(ctx, "failed to create http signer", err)
+			return err
 		}
 
 		esHTTPClient = dphttp2.NewClientWithTransport(awsSignerRT)
@@ -84,40 +84,62 @@ func reindex(ctx context.Context, cfg *config.Config) error {
 		Transport: esHTTPClient,
 	})
 	if esClientErr != nil {
-		log.Fatal(ctx, "Failed to create dp-elasticsearch client", esClientErr)
-		panic(esClientErr)
+		log.Error(ctx, "failed to create dp-elasticsearch client", esClientErr)
+		return esClientErr
 	}
 
 	if err := esClient.NewBulkIndexer(ctx); err != nil {
-		log.Fatal(ctx, "failed to create new bulk indexer", err)
-		panic(err)
+		log.Error(ctx, "failed to create new bulk indexer", err)
+		return err
 	}
 
 	t := &Tracker{}
+	errChan := make(chan error, 1)
 
-	datasetChan, _ := extractDatasets(ctx, t, datasetClient, cfg.ServiceAuthToken, cfg.PaginationLimit)
+	datasetChan, _ := extractDatasets(ctx, t, errChan, datasetClient, cfg.ServiceAuthToken, cfg.PaginationLimit)
 	editionChan, _ := retrieveDatasetEditions(ctx, t, datasetClient, datasetChan, cfg.ServiceAuthToken, cfg.MaxDatasetExtractions)
 	metadataChan, _ := retrieveLatestMetadata(ctx, t, datasetClient, editionChan, cfg.ServiceAuthToken, cfg.MaxDatasetExtractions)
-	transformedMetaChan := metaDataTransformer(ctx, t, metadataChan, cfg.MaxDatasetTransforms)
+	transformedMetaChan := metaDataTransformer(ctx, t, errChan, metadataChan, cfg.MaxDatasetTransforms)
 
-	urisChan := uriProducer(ctx, t, zebClient)
-	extractedChan, extractionFailuresChan := docExtractor(ctx, t, zebClient, urisChan, cfg.MaxDocumentExtractions)
-	transformedDocChan := docTransformer(ctx, t, extractedChan, cfg.MaxDocumentTransforms)
+	urisChan := uriProducer(ctx, t, errChan, zebClient)
+	extractedChan := docExtractor(ctx, t, errChan, zebClient, urisChan, cfg.MaxDocumentExtractions)
+	transformedDocChan := docTransformer(ctx, t, errChan, extractedChan, cfg.MaxDocumentTransforms)
 
 	joinedChan := joinDocChannels(ctx, t, transformedDocChan, transformedMetaChan)
-	indexedChan := docIndexer(ctx, t, esClient, joinedChan)
+	indexedChan := docIndexer(ctx, t, errChan, esClient, joinedChan)
 
-	summarize(ctx, t, indexedChan, extractionFailuresChan)
+	doneChan := summarize(ctx, indexedChan)
+
+	ticker := time.NewTicker(500 * time.Millisecond)
+	defer ticker.Stop()
+
+	for done := false; !done; {
+		select {
+		case err := <-errChan:
+			log.Error(ctx, "error in reindex", err)
+			return err
+		case <-doneChan:
+			done = true
+			break
+		case <-ticker.C:
+			log.Info(ctx, "tracker summary", log.Data{"counters": t.Get()})
+		}
+	}
+
 	cleanOldIndices(ctx, esClient)
 
 	return nil
 }
 
-func uriProducer(ctx context.Context, tracker *Tracker, z clients.ZebedeeClient) chan string {
+func uriProducer(ctx context.Context, tracker *Tracker, errorChan chan error, z clients.ZebedeeClient) chan string {
 	uriChan := make(chan string, defaultChannelBuffer)
 	go func() {
 		defer close(uriChan)
-		items := getPublishedURIs(ctx, z)
+		items, err := getPublishedURIs(ctx, z)
+		if err != nil {
+			errorChan <- err
+			return
+		}
 		for _, item := range items {
 			uriChan <- item.URI
 			tracker.Inc("uri")
@@ -127,22 +149,20 @@ func uriProducer(ctx context.Context, tracker *Tracker, z clients.ZebedeeClient)
 	return uriChan
 }
 
-func getPublishedURIs(ctx context.Context, z clients.ZebedeeClient) []zebedee.PublishedIndexItem {
+func getPublishedURIs(ctx context.Context, z clients.ZebedeeClient) ([]zebedee.PublishedIndexItem, error) {
 	index, err := z.GetPublishedIndex(ctx, &zebedee.PublishedIndexRequestParams{})
 	if err != nil {
-		log.Fatal(ctx, "fatal error getting index from zebedee", err)
-		panic(err)
+		log.Error(ctx, "error getting index from zebedee", err)
+		return nil, err
 	}
 	log.Info(ctx, "fetched uris from zebedee", log.Data{"count": index.Count})
-	return index.Items
+	return index.Items, nil
 }
 
-func docExtractor(ctx context.Context, tracker *Tracker, z clients.ZebedeeClient, uriChan chan string, maxExtractions int) (extractedChan chan Document, extractionFailuresChan chan string) {
+func docExtractor(ctx context.Context, tracker *Tracker, errorChan chan error, z clients.ZebedeeClient, uriChan chan string, maxExtractions int) (extractedChan chan Document) {
 	extractedChan = make(chan Document, defaultChannelBuffer)
-	extractionFailuresChan = make(chan string, defaultChannelBuffer)
 	go func() {
 		defer close(extractedChan)
-		defer close(extractionFailuresChan)
 
 		var wg sync.WaitGroup
 
@@ -150,7 +170,7 @@ func docExtractor(ctx context.Context, tracker *Tracker, z clients.ZebedeeClient
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				extractDoc(ctx, tracker, z, uriChan, extractedChan, extractionFailuresChan)
+				extractDoc(ctx, tracker, errorChan, z, uriChan, extractedChan)
 			}()
 		}
 		wg.Wait()
@@ -159,11 +179,11 @@ func docExtractor(ctx context.Context, tracker *Tracker, z clients.ZebedeeClient
 	return
 }
 
-func extractDoc(ctx context.Context, tracker *Tracker, z clients.ZebedeeClient, uriChan <-chan string, extractedChan chan Document, extractionFailuresChan chan string) {
+func extractDoc(ctx context.Context, tracker *Tracker, errorChan chan error, z clients.ZebedeeClient, uriChan <-chan string, extractedChan chan Document) {
 	for uri := range uriChan {
 		body, err := z.GetPublishedData(ctx, uri)
 		if err != nil {
-			extractionFailuresChan <- uri
+			errorChan <- err
 			log.Error(ctx, "failed to extract doc from zebedee", err, log.Data{"uri": uri})
 			continue
 		}
@@ -177,14 +197,14 @@ func extractDoc(ctx context.Context, tracker *Tracker, z clients.ZebedeeClient, 
 	}
 }
 
-func docTransformer(ctx context.Context, tracker *Tracker, extractedChan chan Document, maxTransforms int) chan Document {
+func docTransformer(ctx context.Context, tracker *Tracker, errChan chan error, extractedChan chan Document, maxTransforms int) chan Document {
 	transformedChan := make(chan Document, defaultChannelBuffer)
 	go func() {
 		var wg sync.WaitGroup
 		for i := 0; i < maxTransforms; i++ {
 			wg.Add(1)
 			go func(wg *sync.WaitGroup) {
-				transformZebedeeDoc(ctx, tracker, extractedChan, transformedChan)
+				transformZebedeeDoc(ctx, tracker, errChan, extractedChan, transformedChan)
 				wg.Done()
 			}(&wg)
 		}
@@ -195,14 +215,14 @@ func docTransformer(ctx context.Context, tracker *Tracker, extractedChan chan Do
 	return transformedChan
 }
 
-func metaDataTransformer(ctx context.Context, tracker *Tracker, metadataChan chan *dataset.Metadata, maxTransforms int) chan Document {
+func metaDataTransformer(ctx context.Context, tracker *Tracker, errChan chan error, metadataChan chan *dataset.Metadata, maxTransforms int) chan Document {
 	transformedChan := make(chan Document, defaultChannelBuffer)
 	go func() {
 		var wg sync.WaitGroup
 		for i := 0; i < maxTransforms; i++ {
 			wg.Add(1)
 			go func(wg *sync.WaitGroup) {
-				transformMetadataDoc(ctx, tracker, metadataChan, transformedChan)
+				transformMetadataDoc(ctx, tracker, errChan, metadataChan, transformedChan)
 				wg.Done()
 			}(&wg)
 		}
@@ -236,14 +256,14 @@ func joinDocChannels(ctx context.Context, tracker *Tracker, inChans ...chan Docu
 	return outChan
 }
 
-func transformZebedeeDoc(ctx context.Context, tracker *Tracker, extractedChan chan Document, transformedChan chan<- Document) {
+func transformZebedeeDoc(ctx context.Context, tracker *Tracker, errChan chan error, extractedChan chan Document, transformedChan chan<- Document) {
 	for extractedDoc := range extractedChan {
 		var zebedeeData extractorModels.ZebedeeData
 		err := json.Unmarshal(extractedDoc.Body, &zebedeeData)
 		if err != nil {
-			log.Fatal(ctx, "error while attempting to unmarshal zebedee response into zebedeeData", err,
-				log.Data{"document": extractedDoc}) // TODO proper error handling
-			panic(err)
+			log.Error(ctx, "error while attempting to unmarshal zebedee response into zebedeeData", err,
+				log.Data{"document": extractedDoc})
+			errChan <- err
 		}
 		if zebedeeData.Description.Title == "" {
 			// Don't want to index things without title
@@ -256,8 +276,8 @@ func transformZebedeeDoc(ctx context.Context, tracker *Tracker, extractedChan ch
 
 		body, err := json.Marshal(esModel)
 		if err != nil {
-			log.Fatal(ctx, "error marshal to json", err) // TODO error handling
-			panic(err)
+			log.Error(ctx, "error marshal to json", err)
+			errChan <- err
 		}
 
 		transformedDoc := Document{
@@ -270,14 +290,14 @@ func transformZebedeeDoc(ctx context.Context, tracker *Tracker, extractedChan ch
 	}
 }
 
-func transformMetadataDoc(ctx context.Context, tracker *Tracker, metadataChan chan *dataset.Metadata, transformedChan chan<- Document) {
+func transformMetadataDoc(ctx context.Context, tracker *Tracker, errChan chan error, metadataChan chan *dataset.Metadata, transformedChan chan<- Document) {
 	for m := range metadataChan {
 		uri := extractorModels.GetURI(m)
 
 		parsedURI, err := url.Parse(uri)
 		if err != nil {
-			log.Fatal(ctx, "error occurred while parsing url", err)
-			panic(err)
+			log.Error(ctx, "error occurred while parsing url", err)
+			errChan <- err
 		}
 
 		datasetID, edition, _, getIDErr := getIDsFromURI(uri)
@@ -295,16 +315,16 @@ func transformMetadataDoc(ctx context.Context, tracker *Tracker, metadataChan ch
 		}
 
 		if err = searchDataImport.MapDatasetMetadataValues(context.Background(), m); err != nil {
-			log.Fatal(ctx, "error occurred while mapping dataset metadata values", err)
-			panic(err)
+			log.Error(ctx, "error occurred while mapping dataset metadata values", err)
+			errChan <- err
 		}
 
 		importerEventData := convertToSearchDataModel(*searchDataImport)
 		esModel := transform.NewTransformer().TransformEventModelToEsModel(&importerEventData)
 		body, err := json.Marshal(esModel)
 		if err != nil {
-			log.Fatal(ctx, "error marshal to json", err) // TODO error handling
-			panic(err)
+			log.Error(ctx, "error marshal to json", err)
+			errChan <- err
 		}
 
 		transformedDoc := Document{
@@ -317,7 +337,7 @@ func transformMetadataDoc(ctx context.Context, tracker *Tracker, metadataChan ch
 	}
 }
 
-func docIndexer(ctx context.Context, tracker *Tracker, dpEsIndexClient dpEsClient.Client, transformedChan chan Document) chan bool {
+func docIndexer(ctx context.Context, tracker *Tracker, errorChan chan error, dpEsIndexClient dpEsClient.Client, transformedChan chan Document) chan bool {
 	indexedChan := make(chan bool, defaultChannelBuffer)
 	go func() {
 		defer close(indexedChan)
@@ -327,8 +347,9 @@ func docIndexer(ctx context.Context, tracker *Tracker, dpEsIndexClient dpEsClien
 		log.Info(ctx, "creating index", log.Data{"indexName": indexName})
 		err := dpEsIndexClient.CreateIndex(ctx, indexName, elasticsearch.GetSearchIndexSettings())
 		if err != nil {
-			log.Fatal(ctx, "error creating index", err)
-			panic(err)
+			log.Error(ctx, "error creating index", err)
+			errorChan <- err
+			return
 		}
 		log.Info(ctx, "index created", log.Data{"indexName": indexName})
 
@@ -337,7 +358,10 @@ func docIndexer(ctx context.Context, tracker *Tracker, dpEsIndexClient dpEsClien
 		dpEsIndexClient.BulkIndexClose(ctx)
 		log.Info(ctx, "finished indexing docs")
 
-		swapAliases(ctx, dpEsIndexClient, indexName)
+		err = swapAliases(ctx, dpEsIndexClient, indexName)
+		if err != nil {
+			errorChan <- err
+		}
 	}()
 	return indexedChan
 }
@@ -375,27 +399,19 @@ func indexDoc(ctx context.Context, tracker *Tracker, esClient dpEsClient.Client,
 	}
 }
 
-func swapAliases(ctx context.Context, dpEsIndexClient dpEsClient.Client, indexName string) {
+func swapAliases(ctx context.Context, dpEsIndexClient dpEsClient.Client, indexName string) error {
 	updateAliasErr := dpEsIndexClient.UpdateAliases(ctx, "ons", []string{"ons*"}, []string{indexName})
 	if updateAliasErr != nil {
-		log.Fatal(ctx, "error swapping aliases: %v", updateAliasErr)
-		panic(updateAliasErr)
+		log.Error(ctx, "error swapping aliases: %v", updateAliasErr)
+		return updateAliasErr
 	}
+	return nil
 }
 
-func summarize(ctx context.Context, tracker *Tracker, indexedChan <-chan bool, extractionFailuresChan <-chan string) {
+func summarize(ctx context.Context, indexedChan <-chan bool) chan bool {
 	totalIndexed, totalFailed := 0, 0
 
 	done := make(chan bool, 2)
-
-	// Summarize the extraction failures
-	// TODO replace when refactoring of error handling is done
-	go func(dc chan<- bool) {
-		for range extractionFailuresChan {
-			totalFailed++
-		}
-		dc <- true
-	}(done)
 
 	go func(dc chan<- bool) {
 		for indexed := range indexedChan {
@@ -405,21 +421,11 @@ func summarize(ctx context.Context, tracker *Tracker, indexedChan <-chan bool, e
 				totalFailed++
 			}
 		}
+		log.Info(ctx, "indexing summary", log.Data{"indexed": totalIndexed, "failed": totalFailed})
 		dc <- true
 	}(done)
 
-	totalDone := 0
-	for totalDone < 2 {
-		log.Info(ctx, "tracker summary", log.Data{"counters": tracker.Get()})
-		select {
-		case <-done:
-			totalDone++
-		default:
-			time.Sleep(5 * time.Second) // TODO make configurable (when refactoring of config takes place)
-		}
-	}
-
-	log.Info(ctx, "indexing summary", log.Data{"indexed": totalIndexed, "failed": totalFailed})
+	return done
 }
 
 type aliasResponse map[string]indexDetails
@@ -428,16 +434,16 @@ type indexDetails struct {
 	Aliases map[string]interface{} `json:"aliases"`
 }
 
-func cleanOldIndices(ctx context.Context, dpEsIndexClient dpEsClient.Client) {
+func cleanOldIndices(ctx context.Context, dpEsIndexClient dpEsClient.Client) error {
 	body, err := dpEsIndexClient.GetAlias(ctx) // Create this method via dp-elasticsearch v3 lib
 	if err != nil {
-		log.Fatal(ctx, "error getting alias", err)
-		panic(err)
+		log.Error(ctx, "error getting alias", err)
+		return err
 	}
 	var r aliasResponse
 	if err := json.Unmarshal(body, &r); err != nil {
-		log.Fatal(ctx, "error parsing alias response body", err)
-		panic(err)
+		log.Error(ctx, "error parsing alias response body", err)
+		return err
 	}
 
 	toDelete := []string{}
@@ -448,8 +454,12 @@ func cleanOldIndices(ctx context.Context, dpEsIndexClient dpEsClient.Client) {
 	}
 
 	if len(toDelete) > 0 {
-		deleteIndicies(ctx, dpEsIndexClient, toDelete)
+		err := deleteIndicies(ctx, dpEsIndexClient, toDelete)
+		if err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 func doesIndexHaveAlias(details indexDetails, alias string) bool {
@@ -461,15 +471,16 @@ func doesIndexHaveAlias(details indexDetails, alias string) bool {
 	return false
 }
 
-func deleteIndicies(ctx context.Context, dpEsIndexClient dpEsClient.Client, indicies []string) {
+func deleteIndicies(ctx context.Context, dpEsIndexClient dpEsClient.Client, indicies []string) error {
 	if err := dpEsIndexClient.DeleteIndices(ctx, indicies); err != nil {
-		log.Fatal(ctx, "error getting alias", err)
-		panic(err)
+		log.Error(ctx, "error getting alias", err)
+		return err
 	}
 	log.Info(ctx, "indicies deleted", log.Data{"deleted_indicies": indicies})
+	return nil
 }
 
-func extractDatasets(ctx context.Context, tracker *Tracker, datasetClient clients.DatasetAPIClient, serviceAuthToken string, paginationLimit int) (chan dataset.Dataset, *sync.WaitGroup) {
+func extractDatasets(ctx context.Context, tracker *Tracker, errChan chan error, datasetClient clients.DatasetAPIClient, serviceAuthToken string, paginationLimit int) (chan dataset.Dataset, *sync.WaitGroup) {
 	datasetChan := make(chan dataset.Dataset, defaultChannelBuffer)
 	var wg sync.WaitGroup
 
@@ -488,8 +499,8 @@ func extractDatasets(ctx context.Context, tracker *Tracker, datasetClient client
 				Limit:  paginationLimit,
 			})
 			if err != nil {
-				log.Fatal(ctx, "error retrieving datasets", err)
-				panic(err)
+				log.Error(ctx, "error retrieving datasets", err)
+				errChan <- err
 			}
 			log.Info(ctx, "got datasets batch", log.Data{
 				"count":       list.Count,

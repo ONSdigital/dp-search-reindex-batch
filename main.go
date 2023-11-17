@@ -49,26 +49,25 @@ func run(ctx context.Context) error {
 		Config: cfg,
 	}
 
-	// Run the task in the background, using a result channel and an error channel for fatal errors
-	errChan := make(chan error, 1)
+	ctx, ctxCancelFunc := context.WithCancel(ctx)
+
+	// Run the task in the background, using a result channel
 	resultChan := make(chan *task.Result, 1)
 	go func() {
-		result, err := chk.Run(ctx)
-		if err != nil {
-			errChan <- err
-		}
-		resultChan <- result
+		resultChan <- chk.Run(ctx)
 	}()
 
-	// blocks until completion, an os interrupt or a fatal error occurs
+	// blocks until an os interrupt, task completion or a fatal error occurs
 	select {
-	case err := <-errChan:
-		log.Error(ctx, "task error received", err)
-		return err
 	case sig := <-signals:
 		log.Info(ctx, "os signal received", log.Data{"signal": sig})
 	case result := <-resultChan:
-		log.Info(ctx, "task result", log.Data{"Result": result})
+		log.Info(ctx, "task result", log.Data{"Success": result.Success})
+		if result.Err != nil {
+			log.Error(ctx, "task error received", err)
+			ctxCancelFunc()
+			return err
+		}
 		log.Info(ctx, "task complete")
 	}
 	return nil

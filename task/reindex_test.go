@@ -79,7 +79,7 @@ func TestTransformMetadataDoc(t *testing.T) {
 			wg := &sync.WaitGroup{}
 			wg.Add(1)
 			go func(waitGroup *sync.WaitGroup) {
-				transformMetadataDoc(ctx, tracker, metadataChan, transformedChan)
+				transformMetadataDoc(ctx, tracker, nil, metadataChan, transformedChan)
 				wg.Done()
 			}(wg)
 
@@ -153,7 +153,7 @@ func TestTransformMetadataDoc(t *testing.T) {
 			wg := &sync.WaitGroup{}
 			wg.Add(1)
 			go func(waitGroup *sync.WaitGroup) {
-				transformMetadataDoc(ctx, tracker, metadataChan, transformedChan)
+				transformMetadataDoc(ctx, tracker, nil, metadataChan, transformedChan)
 				wg.Done()
 			}(wg)
 
@@ -213,7 +213,7 @@ func TestExtractDatasets(t *testing.T) {
 		tracker := &Tracker{}
 
 		Convey("Then extractDatasets with a paginationLimit of 2 send all the datasets to the dataset channel", func() {
-			datasetChan, wg := extractDatasets(ctx, tracker, cli, testAuthToken, 2)
+			datasetChan, wg := extractDatasets(ctx, tracker, nil, cli, testAuthToken, 2)
 
 			ds1 := <-datasetChan
 			So(ds1, ShouldResemble, dataset.Dataset{ID: "dataset1"})
