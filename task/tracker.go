@@ -1,6 +1,9 @@
 package task
 
-import "sync"
+import (
+	"maps"
+	"sync"
+)
 
 // Tracker is a struct that implements synchronised incremental counters
 type Tracker struct {
@@ -24,10 +27,5 @@ func (t *Tracker) Get() map[string]int {
 	defer t.mu.Unlock()
 
 	// Copy the map so as not to return the protected internal map
-	// TODO replace with maps.Clone on release of go 1.21 (https://pkg.go.dev/maps@go1.21rc4#Clone)
-	counters := make(map[string]int, len(t.counters))
-	for k, v := range t.counters {
-		counters[k] = v
-	}
-	return counters
+	return maps.Clone(t.counters)
 }
