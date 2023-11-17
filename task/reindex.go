@@ -126,7 +126,10 @@ func reindex(ctx context.Context, cfg *config.Config) error {
 		}
 	}
 
-	cleanOldIndices(ctx, esClient)
+	if err := cleanOldIndices(ctx, esClient); err != nil {
+		log.Error(ctx, "failed to clean old indexes", err)
+		return err
+	}
 
 	return nil
 }

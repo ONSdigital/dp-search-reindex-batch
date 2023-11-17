@@ -49,8 +49,6 @@ func run(ctx context.Context) error {
 		Config: cfg,
 	}
 
-	ctx, ctxCancelFunc := context.WithCancel(ctx)
-
 	// Run the task in the background, using a result channel
 	resultChan := make(chan *task.Result, 1)
 	go func() {
@@ -65,7 +63,6 @@ func run(ctx context.Context) error {
 		log.Info(ctx, "task result", log.Data{"Success": result.Success})
 		if result.Err != nil {
 			log.Error(ctx, "task error received", err)
-			ctxCancelFunc()
 			return err
 		}
 		log.Info(ctx, "task complete")
