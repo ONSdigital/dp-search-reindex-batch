@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"testing"
+	"time"
 
 	. "github.com/smartystreets/goconvey/convey"
 )
@@ -34,6 +35,7 @@ func TestConfig(t *testing.T) {
 					MaxDocumentTransforms:  20,
 					MaxDatasetExtractions:  20,
 					MaxDatasetTransforms:   10,
+					TrackerInterval:        5000 * time.Millisecond,
 				},
 				)
 			})

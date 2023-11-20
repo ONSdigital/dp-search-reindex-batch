@@ -110,7 +110,7 @@ func reindex(ctx context.Context, cfg *config.Config) error {
 
 	doneChan := summarize(ctx, indexedChan)
 
-	ticker := time.NewTicker(500 * time.Millisecond)
+	ticker := time.NewTicker(cfg.TrackerInterval)
 	defer ticker.Stop()
 
 	for done := false; !done; {
