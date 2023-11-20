@@ -27,6 +27,7 @@ Batch nomad job for reindexing search
 | MAX_DOCUMENT_TRANSFORMS     | 20                       | Max number of concurrent Document Transformation workers                   |
 | MAX_DATASET_EXTRACTIONS     | 20                       | Max number of concurrent Dataset Extractions (ie. Dataset API connections) |
 | MAX_DATASET_TRANSFORMS      | 10                       | Max number of concurrent Dataset Transformation workers                    |
+| TRACKER_INTERVAL            | 5s                       | Interval for progress tracker summary logging                              | 
 
 ### Local Prerequisites
 
