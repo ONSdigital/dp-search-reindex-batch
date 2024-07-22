@@ -1,7 +1,5 @@
 github.com/ONSdigital/dp-api-clients-go/v2 v2.260.1 h1:gVRu8rKdlV50HPtBISyGjMtBrZ+meaIebHpoKykMC18=
 github.com/ONSdigital/dp-api-clients-go/v2 v2.260.1/go.mod h1:+4jW6BFCJwldSIwNVcclrTVrFVlx0D3e3C3CzUMvsuA=
-github.com/ONSdigital/dp-cache v0.3.0 h1:E0T3XVjpcl6PDHL/4Go9a+EGekIwwNsfL0MsSgNK/jM=
-github.com/ONSdigital/dp-cache v0.3.0/go.mod h1:cyduXeUO8n9TLZIorCWDzEoLkk1jK8q4Ex5CBsxptKA=
 github.com/ONSdigital/dp-elasticsearch/v3 v3.0.1-alpha.4.0.20230308115225-bb7559a89d0c h1:eSAGAcjij4KnrdtxZPYZphBYls5aJLHRwNhm8EtlK3Q=
 github.com/ONSdigital/dp-elasticsearch/v3 v3.0.1-alpha.4.0.20230308115225-bb7559a89d0c/go.mod h1:w/aKn5mdX0o8sDaJPU3jas49Ed0fgrXYTeGU5DhMnHk=
 github.com/ONSdigital/dp-healthcheck v1.6.3 h1:EekpiLjiXQtetNDmworUhZZMDvcG70b2cZYhVhEuUSs=
@@ -12,8 +10,8 @@ github.com/ONSdigital/dp-net/v2 v2.11.2 h1:S5WfcXHva1V8ZkVLS7ZhsvQjf3PPCkCM++NdG
 github.com/ONSdigital/dp-net/v2 v2.11.2/go.mod h1:yZ0lIzM4WfIr6Ujl1lpkCsPHay0n/VQfZJUZjlYB8MY=
 github.com/ONSdigital/dp-search-api v1.45.0 h1:crFrAMt31OgHoDMdi5MKFiRW5hdr7IOJN16NUMMRWYY=
 github.com/ONSdigital/dp-search-api v1.45.0/go.mod h1:Vt+DsN5/O2u8Z85uMd/mpcvTj6pVnwZZbhNjirUqUss=
-github.com/ONSdigital/dp-search-data-extractor v1.3.0 h1:A4y+Hvhm+sus5cGyrgBPLccQZ+khvNI7zY1EVj/WWQg=
-github.com/ONSdigital/dp-search-data-extractor v1.3.0/go.mod h1:Z1F8IOHf5NWsq6te0/fdd495BOSijgQc/gq+4cbaJRk=
+github.com/ONSdigital/dp-search-data-extractor v1.3.1 h1:Nxu/6XBWgrkh36WzYKQ+jz0BZnEPUYdp2k7LrT0nrLQ=
+github.com/ONSdigital/dp-search-data-extractor v1.3.1/go.mod h1:Z1F8IOHf5NWsq6te0/fdd495BOSijgQc/gq+4cbaJRk=
 github.com/ONSdigital/dp-search-data-importer v1.1.0 h1:evHYVO8tvIavtrjzNbGGEG5aHX/kq62svn8G7OX00iU=
 github.com/ONSdigital/dp-search-data-importer v1.1.0/go.mod h1:BhEk1cabd02ofuLEQRPjYTufoFho1w+HB40F3d7fLkg=
 github.com/ONSdigital/dp-topic-api v0.23.0 h1:v/E1UacSYpMHpzmmWu5J5BPEJsItdaOcKcWGYQx7nn4=

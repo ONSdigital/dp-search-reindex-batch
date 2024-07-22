@@ -36,6 +36,8 @@ func TestConfig(t *testing.T) {
 					MaxDatasetExtractions:  20,
 					MaxDatasetTransforms:   10,
 					TrackerInterval:        5000 * time.Millisecond,
+					TopicAPIURL:            "http://localhost:25300",
+					TopicTaggingEnabled:    false,
 				},
 				)
 			})

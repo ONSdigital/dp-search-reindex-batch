@@ -7,7 +7,7 @@ require (
 	github.com/ONSdigital/dp-elasticsearch/v3 v3.0.1-alpha.4.0.20230308115225-bb7559a89d0c
 	github.com/ONSdigital/dp-net/v2 v2.11.2
 	github.com/ONSdigital/dp-search-api v1.45.0
-	github.com/ONSdigital/dp-search-data-extractor v1.3.0
+	github.com/ONSdigital/dp-search-data-extractor v1.3.1
 	github.com/ONSdigital/dp-search-data-importer v1.1.0
 	github.com/ONSdigital/dp-topic-api v0.23.0
 	github.com/ONSdigital/log.go/v2 v2.4.3
@@ -18,7 +18,6 @@ require (
 )
 
 require (
-	github.com/ONSdigital/dp-cache v0.3.0 // indirect
 	github.com/ONSdigital/dp-healthcheck v1.6.3 // indirect
 	github.com/aws/aws-sdk-go v1.54.19 // indirect
 	github.com/fatih/color v1.17.0 // indirect

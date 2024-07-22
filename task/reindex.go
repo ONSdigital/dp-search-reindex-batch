@@ -23,6 +23,7 @@ import (
 	importerModels "github.com/ONSdigital/dp-search-data-importer/models"
 	"github.com/ONSdigital/dp-search-data-importer/transform"
 	"github.com/ONSdigital/dp-search-reindex-batch/config"
+	topicCli "github.com/ONSdigital/dp-topic-api/sdk"
 	"github.com/ONSdigital/log.go/v2/log"
 	"github.com/elastic/go-elasticsearch/v7/esutil"
 )
@@ -93,8 +94,21 @@ func reindex(ctx context.Context, cfg *config.Config) error {
 		return err
 	}
 
+	topicClient := topicCli.New(cfg.TopicAPIURL)
+	if topicClient == nil {
+		err := errors.New("failed to create topic client")
+		log.Error(ctx, err.Error(), err)
+		return err
+	}
+
 	t := &Tracker{}
 	errChan := make(chan error, 1)
+
+	topicsMap := make(map[string]Topic)
+	// if topic tagging is enabled
+	if cfg.TopicTaggingEnabled {
+		topicsMap = LoadTopicsMap(ctx, cfg.ServiceAuthToken, topicClient)
+	}
 
 	datasetChan, _ := extractDatasets(ctx, t, errChan, datasetClient, cfg.ServiceAuthToken, cfg.PaginationLimit)
 	editionChan, _ := retrieveDatasetEditions(ctx, t, datasetClient, datasetChan, cfg.ServiceAuthToken, cfg.MaxDatasetExtractions)
@@ -103,7 +117,7 @@ func reindex(ctx context.Context, cfg *config.Config) error {
 
 	urisChan := uriProducer(ctx, t, errChan, zebClient)
 	extractedChan := docExtractor(ctx, t, errChan, zebClient, urisChan, cfg.MaxDocumentExtractions)
-	transformedDocChan := docTransformer(ctx, t, errChan, extractedChan, cfg.MaxDocumentTransforms)
+	transformedDocChan := docTransformer(ctx, t, errChan, extractedChan, cfg.MaxDocumentTransforms, topicsMap, cfg.TopicTaggingEnabled)
 
 	joinedChan := joinDocChannels(ctx, t, transformedDocChan, transformedMetaChan)
 	indexedChan := docIndexer(ctx, t, errChan, esClient, joinedChan)
@@ -200,14 +214,14 @@ func extractDoc(ctx context.Context, tracker *Tracker, errorChan chan error, z c
 	}
 }
 
-func docTransformer(ctx context.Context, tracker *Tracker, errChan chan error, extractedChan chan Document, maxTransforms int) chan Document {
+func docTransformer(ctx context.Context, tracker *Tracker, errChan chan error, extractedChan chan Document, maxTransforms int, topicsMap map[string]Topic, enableTopicTagging bool) chan Document {
 	transformedChan := make(chan Document, defaultChannelBuffer)
 	go func() {
 		var wg sync.WaitGroup
 		for i := 0; i < maxTransforms; i++ {
 			wg.Add(1)
 			go func(wg *sync.WaitGroup) {
-				transformZebedeeDoc(ctx, tracker, errChan, extractedChan, transformedChan)
+				transformZebedeeDoc(ctx, tracker, errChan, extractedChan, transformedChan, topicsMap, enableTopicTagging)
 				wg.Done()
 			}(&wg)
 		}
@@ -259,7 +273,7 @@ func joinDocChannels(ctx context.Context, tracker *Tracker, inChans ...chan Docu
 	return outChan
 }
 
-func transformZebedeeDoc(ctx context.Context, tracker *Tracker, errChan chan error, extractedChan chan Document, transformedChan chan<- Document) {
+func transformZebedeeDoc(ctx context.Context, tracker *Tracker, errChan chan error, extractedChan chan Document, transformedChan chan<- Document, topicsMap map[string]Topic, topicTaggingEnabled bool) {
 	for extractedDoc := range extractedChan {
 		var zebedeeData extractorModels.ZebedeeData
 		err := json.Unmarshal(extractedDoc.Body, &zebedeeData)
@@ -275,6 +289,9 @@ func transformZebedeeDoc(ctx context.Context, tracker *Tracker, errChan chan err
 		}
 		exporterEventData := extractorModels.MapZebedeeDataToSearchDataImport(zebedeeData, -1)
 		importerEventData := convertToSearchDataModel(exporterEventData)
+		if topicTaggingEnabled {
+			importerEventData = tagImportDataTopics(topicsMap, importerEventData)
+		}
 		esModel := transform.NewTransformer().TransformEventModelToEsModel(&importerEventData)
 
 		body, err := json.Marshal(esModel)
@@ -290,6 +307,48 @@ func transformZebedeeDoc(ctx context.Context, tracker *Tracker, errChan chan err
 		}
 		transformedChan <- transformedDoc
 		tracker.Inc("doc-transformed")
+	}
+}
+
+// Auto tag import data topics based on the URI segments of the request
+func tagImportDataTopics(topicsMap map[string]Topic, importerEventData importerModels.SearchDataImport) importerModels.SearchDataImport {
+	// Set to track unique topic IDs
+	uniqueTopics := make(map[string]struct{})
+
+	// Add existing topics in searchData.Topics
+	for _, topicID := range importerEventData.Topics {
+		if _, exists := uniqueTopics[topicID]; !exists {
+			uniqueTopics[topicID] = struct{}{}
+		}
+	}
+
+	// Break URI into segments and exclude the last segment
+	uriSegments := strings.Split(importerEventData.URI, "/")
+
+	// Add topics based on URI segments
+	for _, segment := range uriSegments {
+		AddTopicWithParents(segment, topicsMap, uniqueTopics)
+	}
+
+	// Convert set to slice
+	importerEventData.Topics = make([]string, 0, len(uniqueTopics))
+	for topicID := range uniqueTopics {
+		importerEventData.Topics = append(importerEventData.Topics, topicID)
+	}
+
+	return importerEventData
+}
+
+// AddTopicWithParents adds a topic and its parents to the uniqueTopics map if they don't already exist.
+// It recursively adds parent topics until it reaches the root topic.
+func AddTopicWithParents(slug string, topicsMap map[string]Topic, uniqueTopics map[string]struct{}) {
+	if topic, exists := topicsMap[slug]; exists {
+		if _, alreadyProcessed := uniqueTopics[topic.ID]; !alreadyProcessed {
+			uniqueTopics[topic.ID] = struct{}{}
+			if topic.ParentSlug != "" {
+				AddTopicWithParents(topic.ParentSlug, topicsMap, uniqueTopics)
+			}
+		}
 	}
 }
 
@@ -379,12 +438,12 @@ func createIndexName(s string) string {
 // otherwise, 'false' is sent
 func indexDoc(ctx context.Context, tracker *Tracker, esClient dpEsClient.Client, transformedChan <-chan Document, indexedChan chan bool, indexName string) {
 	for transformedDoc := range transformedChan {
-		onSuccess := func(ctx context.Context, item esutil.BulkIndexerItem, res esutil.BulkIndexerResponseItem) {
+		onSuccess := func(_ context.Context, _ esutil.BulkIndexerItem, _ esutil.BulkIndexerResponseItem) {
 			indexedChan <- true
 			tracker.Inc("indexed")
 		}
 
-		onFailure := func(ctx context.Context, bii esutil.BulkIndexerItem, biri esutil.BulkIndexerResponseItem, err error) {
+		onFailure := func(ctx context.Context, _ esutil.BulkIndexerItem, biri esutil.BulkIndexerResponseItem, err error) {
 			log.Error(ctx, "failed to index document", err, log.Data{
 				"doc_id":   transformedDoc.ID,
 				"response": biri,
@@ -649,6 +708,7 @@ func convertToSearchDataModel(searchDataImport extractorModels.SearchDataImport)
 			RawLabel: dim.RawLabel,
 		})
 	}
+
 	return searchDIM
 }
 

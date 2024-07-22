@@ -499,3 +499,87 @@ func TestIndexDoc(t *testing.T) {
 		})
 	})
 }
+
+func TestTagImportDataTopics(t *testing.T) {
+	Convey("Given a valid SearchDataImport while transforming zebedeeDoc ", t, func() {
+		topicsMap := map[string]Topic{
+			"economy":               {ID: "6734", Slug: "economy", ParentSlug: ""},
+			"environmentalaccounts": {ID: "1834", Slug: "environmentalaccounts", ParentSlug: "economy"},
+			"business":              {ID: "1234", Slug: "business", ParentSlug: ""},
+		}
+
+		importerEventData := importerModels.SearchDataImport{
+			UID:             "12345",
+			URI:             "/economy/environmentalaccounts",
+			DataType:        "dataset",
+			Edition:         "2021",
+			JobID:           "job-123",
+			SearchIndex:     "search-index",
+			CanonicalTopic:  "canonical-topic",
+			CDID:            "CDID-123",
+			DatasetID:       "dataset-123",
+			Keywords:        []string{"keyword1", "keyword2"},
+			MetaDescription: "meta description",
+			ReleaseDate:     "2021-01-01",
+			Summary:         "summary",
+			Title:           "title",
+			Topics:          []string{"1234"},
+			TraceID:         "trace-123",
+			Cancelled:       false,
+			Finalised:       false,
+			ProvisionalDate: "2021-01-02",
+			Published:       true,
+			Survey:          "survey",
+			Language:        "en",
+		}
+
+		Convey("When topics are initially empty", func() {
+			importerEventData.Topics = []string{}
+			updatedImporterEventData := tagImportDataTopics(topicsMap, importerEventData)
+
+			Convey("Then the resulting topics should contain only topics from the URI", func() {
+				expectedTopics := []string{"6734", "1834"}
+
+				So(updatedImporterEventData.Topics, ShouldHaveLength, len(expectedTopics))
+				So(updatedImporterEventData.Topics, ShouldContain, "1834")
+				So(updatedImporterEventData.Topics, ShouldContain, "6734")
+			})
+		})
+
+		Convey("When topics are initially not empty", func() {
+			updatedImporterEventData := tagImportDataTopics(topicsMap, importerEventData)
+
+			Convey("Then the resulting topics should contain both the default and the topics obtained from the URI", func() {
+				expectedTopics := []string{"1234", "6734", "1834"}
+
+				So(updatedImporterEventData.Topics, ShouldHaveLength, len(expectedTopics))
+				So(updatedImporterEventData.Topics, ShouldContain, "1834")
+				So(updatedImporterEventData.Topics, ShouldContain, "1234")
+			})
+		})
+
+		Convey("When URI does not match any topics", func() {
+			importerEventData.URI = "/non-existing-topic"
+			updatedImporterEventData := tagImportDataTopics(topicsMap, importerEventData)
+
+			Convey("Then the resulting topics should contain only the default", func() {
+				So(updatedImporterEventData.Topics, ShouldResemble, importerEventData.Topics)
+				So(updatedImporterEventData.Topics, ShouldHaveLength, len(importerEventData.Topics))
+			})
+		})
+
+		Convey("When URI segments contain unrelated topics", func() {
+			importerEventData.URI = "/economy/environmentalaccounts/non-existing-slug"
+			updatedImporterEventData := tagImportDataTopics(topicsMap, importerEventData)
+
+			Convey("Then the resulting topics should contain only related topics", func() {
+				expectedTopics := []string{"1234", "6734", "1834"}
+
+				So(updatedImporterEventData.Topics, ShouldHaveLength, len(expectedTopics))
+				So(updatedImporterEventData.Topics, ShouldContain, "1234")
+				So(updatedImporterEventData.Topics, ShouldContain, "6734")
+				So(updatedImporterEventData.Topics, ShouldContain, "1834")
+			})
+		})
+	})
+}
