@@ -20,7 +20,7 @@ type Config struct {
 	ServiceAuthToken       string        `envconfig:"SERVICE_AUTH_TOKEN"             json:"-"`
 	SignESRequests         bool          `envconfig:"SIGN_ELASTICSEARCH_REQUESTS"`
 	TopicAPIURL            string        `envconfig:"TOPIC_API_URL"`
-	TopicTaggingEnabled    bool          `envconfig:"TOPIC_TAGGING_ENABLED"`
+	TopicTaggingEnabled    bool          `envconfig:"ENABLE_TOPIC_TAGGING"`
 	TrackerInterval        time.Duration `envconfig:"TRACKER_INTERVAL"`
 	ZebedeeURL             string        `envconfig:"ZEBEDEE_URL"`
 }
