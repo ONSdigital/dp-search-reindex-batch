@@ -291,6 +291,13 @@ func transformZebedeeDoc(ctx context.Context, tracker *Tracker, errChan chan err
 		importerEventData := convertToSearchDataModel(exporterEventData)
 		if topicTaggingEnabled {
 			importerEventData = tagImportDataTopics(topicsMap, importerEventData)
+			if len(importerEventData.Topics) == 0 {
+				tracker.Inc("docs-topic-untagged")
+				log.Warn(ctx, "untagged topic document",
+					log.Data{"URI": importerEventData.URI})
+			} else {
+				tracker.Inc("docs-topic-tagged")
+			}
 		}
 		esModel := transform.NewTransformer().TransformEventModelToEsModel(&importerEventData)
 

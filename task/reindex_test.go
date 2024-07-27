@@ -532,7 +532,6 @@ func TestTagImportDataTopics(t *testing.T) {
 			Survey:          "survey",
 			Language:        "en",
 		}
-
 		Convey("When topics are initially empty", func() {
 			importerEventData.Topics = []string{}
 			updatedImporterEventData := tagImportDataTopics(topicsMap, importerEventData)
