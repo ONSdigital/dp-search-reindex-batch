@@ -104,11 +104,7 @@ func reindex(ctx context.Context, cfg *config.Config) error {
 	t := &Tracker{}
 	errChan := make(chan error, 1)
 
-	topicsMap := make(map[string]Topic)
-	// if topic tagging is enabled
-	if cfg.TopicTaggingEnabled {
-		topicsMap = LoadTopicsMap(ctx, cfg.ServiceAuthToken, topicClient)
-	}
+	topicsMapChan := retrieveTopicsMap(ctx, cfg.TopicTaggingEnabled, cfg.ServiceAuthToken, topicClient)
 
 	datasetChan, _ := extractDatasets(ctx, t, errChan, datasetClient, cfg.ServiceAuthToken, cfg.PaginationLimit)
 	editionChan, _ := retrieveDatasetEditions(ctx, t, datasetClient, datasetChan, cfg.ServiceAuthToken, cfg.MaxDatasetExtractions)
@@ -117,7 +113,7 @@ func reindex(ctx context.Context, cfg *config.Config) error {
 
 	urisChan := uriProducer(ctx, t, errChan, zebClient)
 	extractedChan := docExtractor(ctx, t, errChan, zebClient, urisChan, cfg.MaxDocumentExtractions)
-	transformedDocChan := docTransformer(ctx, t, errChan, extractedChan, cfg.MaxDocumentTransforms, topicsMap, cfg.TopicTaggingEnabled)
+	transformedDocChan := docTransformer(ctx, t, errChan, extractedChan, cfg.MaxDocumentTransforms, topicsMapChan)
 
 	joinedChan := joinDocChannels(ctx, t, transformedDocChan, transformedMetaChan)
 	indexedChan := docIndexer(ctx, t, errChan, esClient, joinedChan)
@@ -214,14 +210,18 @@ func extractDoc(ctx context.Context, tracker *Tracker, errorChan chan error, z c
 	}
 }
 
-func docTransformer(ctx context.Context, tracker *Tracker, errChan chan error, extractedChan chan Document, maxTransforms int, topicsMap map[string]Topic, enableTopicTagging bool) chan Document {
+func docTransformer(ctx context.Context, tracker *Tracker, errChan chan error, extractedChan chan Document, maxTransforms int, topicsMapChan chan map[string]Topic) chan Document {
+	var topicsMap map[string]Topic
+	for tm := range topicsMapChan {
+		topicsMap = tm
+	}
 	transformedChan := make(chan Document, defaultChannelBuffer)
 	go func() {
 		var wg sync.WaitGroup
 		for i := 0; i < maxTransforms; i++ {
 			wg.Add(1)
 			go func(wg *sync.WaitGroup) {
-				transformZebedeeDoc(ctx, tracker, errChan, extractedChan, transformedChan, topicsMap, enableTopicTagging)
+				transformZebedeeDoc(ctx, tracker, errChan, extractedChan, transformedChan, topicsMap)
 				wg.Done()
 			}(&wg)
 		}
@@ -273,7 +273,7 @@ func joinDocChannels(ctx context.Context, tracker *Tracker, inChans ...chan Docu
 	return outChan
 }
 
-func transformZebedeeDoc(ctx context.Context, tracker *Tracker, errChan chan error, extractedChan chan Document, transformedChan chan<- Document, topicsMap map[string]Topic, topicTaggingEnabled bool) {
+func transformZebedeeDoc(ctx context.Context, tracker *Tracker, errChan chan error, extractedChan chan Document, transformedChan chan<- Document, topicsMap map[string]Topic) {
 	for extractedDoc := range extractedChan {
 		var zebedeeData extractorModels.ZebedeeData
 		err := json.Unmarshal(extractedDoc.Body, &zebedeeData)
@@ -289,7 +289,7 @@ func transformZebedeeDoc(ctx context.Context, tracker *Tracker, errChan chan err
 		}
 		exporterEventData := extractorModels.MapZebedeeDataToSearchDataImport(zebedeeData, -1)
 		importerEventData := convertToSearchDataModel(exporterEventData)
-		if topicTaggingEnabled {
+		if topicsMap != nil {
 			importerEventData = tagImportDataTopics(topicsMap, importerEventData)
 			if len(importerEventData.Topics) == 0 {
 				tracker.Inc("docs-topic-untagged")
@@ -315,6 +315,23 @@ func transformZebedeeDoc(ctx context.Context, tracker *Tracker, errChan chan err
 		transformedChan <- transformedDoc
 		tracker.Inc("doc-transformed")
 	}
+}
+
+func retrieveTopicsMap(ctx context.Context, enabled bool, serviceAuthToken string, topicClient topicCli.Clienter) chan map[string]Topic {
+	topicsMapChan := make(chan map[string]Topic, 1)
+
+	go func() {
+		defer close(topicsMapChan)
+		if enabled {
+			topicsMap := LoadTopicsMap(ctx, serviceAuthToken, topicClient)
+			topicsMapChan <- topicsMap
+			log.Info(ctx, "finished retrieving topics map", log.Data{"map_size": len(topicsMap)})
+		} else {
+			log.Info(ctx, "topic map retrieval disabled")
+		}
+	}()
+
+	return topicsMapChan
 }
 
 // Auto tag import data topics based on the URI segments of the request
