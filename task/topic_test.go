@@ -93,7 +93,8 @@ func TestLoadTopicsMap(t *testing.T) {
 	}
 
 	Convey("When LoadTopicsMap is called with enableTopicTagging is enabled and root topics are retrieved and processed successfully", t, func() {
-		topicMap := LoadTopicsMap(ctx, serviceAuthToken, mockClient)
+		topicMap, err := LoadTopicsMap(ctx, serviceAuthToken, mockClient)
+		So(err, ShouldBeNil)
 		So(len(topicMap), ShouldEqual, 3)
 		So(topicMap["economy"].ID, ShouldEqual, "6734")
 		So(topicMap["business"].ID, ShouldEqual, "1234")
@@ -107,7 +108,8 @@ func TestLoadTopicsMap(t *testing.T) {
 				}
 			},
 		}
-		topicMap := LoadTopicsMap(ctx, serviceAuthToken, mockClient)
+		topicMap, err := LoadTopicsMap(ctx, serviceAuthToken, mockClient)
+		So(err, ShouldNotBeNil)
 		So(len(topicMap), ShouldEqual, 0)
 	})
 
@@ -123,7 +125,8 @@ func TestLoadTopicsMap(t *testing.T) {
 				}, nil
 			},
 		}
-		topicMap := LoadTopicsMap(ctx, serviceAuthToken, mockClient)
+		topicMap, err := LoadTopicsMap(ctx, serviceAuthToken, mockClient)
+		So(err, ShouldNotBeNil)
 		So(len(topicMap), ShouldEqual, 0)
 	})
 }

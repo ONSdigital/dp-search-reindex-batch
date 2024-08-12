@@ -104,7 +104,7 @@ func reindex(ctx context.Context, cfg *config.Config) error {
 	t := &Tracker{}
 	errChan := make(chan error, 1)
 
-	topicsMapChan := retrieveTopicsMap(ctx, cfg.TopicTaggingEnabled, cfg.ServiceAuthToken, topicClient)
+	topicsMapChan := retrieveTopicsMap(ctx, errChan, cfg.TopicTaggingEnabled, cfg.ServiceAuthToken, topicClient)
 
 	datasetChan, _ := extractDatasets(ctx, t, errChan, datasetClient, cfg.ServiceAuthToken, cfg.PaginationLimit)
 	editionChan, _ := retrieveDatasetEditions(ctx, t, datasetClient, datasetChan, cfg.ServiceAuthToken, cfg.MaxDatasetExtractions)
@@ -317,13 +317,17 @@ func transformZebedeeDoc(ctx context.Context, tracker *Tracker, errChan chan err
 	}
 }
 
-func retrieveTopicsMap(ctx context.Context, enabled bool, serviceAuthToken string, topicClient topicCli.Clienter) chan map[string]Topic {
+func retrieveTopicsMap(ctx context.Context, errorChan chan error, enabled bool, serviceAuthToken string, topicClient topicCli.Clienter) chan map[string]Topic {
 	topicsMapChan := make(chan map[string]Topic, 1)
 
 	go func() {
 		defer close(topicsMapChan)
 		if enabled {
-			topicsMap := LoadTopicsMap(ctx, serviceAuthToken, topicClient)
+			topicsMap, err := LoadTopicsMap(ctx, serviceAuthToken, topicClient)
+			if err != nil {
+				errorChan <- err
+				return
+			}
 			topicsMapChan <- topicsMap
 			log.Info(ctx, "finished retrieving topics map", log.Data{"map_size": len(topicsMap)})
 		} else {
