@@ -86,6 +86,16 @@ func processTopic(ctx context.Context, serviceAuthToken string, topicClient topi
 	}
 
 	if topic != nil {
+		// Check for duplicate slug
+		if _, slugExists := topicMap[topic.Current.Slug]; slugExists {
+			log.Info(ctx, "duplicate slug detected", log.Data{
+				"slug":      topic.Current.Slug,
+				"topic_id":  topicID,
+				"parent_id": parentTopicID,
+				"depth":     depth,
+			})
+		}
+
 		// Map the current topic model to Topic struct
 		topicDetails := mapTopicModelToStruct(*topic.Current, parentTopicID, parentTopicSlug)
 

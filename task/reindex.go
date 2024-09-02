@@ -353,9 +353,11 @@ func tagImportDataTopics(topicsMap map[string]Topic, importerEventData importerM
 	// Break URI into segments and exclude the last segment
 	uriSegments := strings.Split(importerEventData.URI, "/")
 
-	// Add topics based on URI segments
+	// Add topics based on URI segments, starting from root or contextually relevant topic
+	parentSlug := ""
 	for _, segment := range uriSegments {
-		AddTopicWithParents(segment, topicsMap, uniqueTopics)
+		AddTopicWithParents(segment, parentSlug, topicsMap, uniqueTopics)
+		parentSlug = segment // Update parentSlug for the next iteration
 	}
 
 	// Convert set to slice
@@ -369,13 +371,18 @@ func tagImportDataTopics(topicsMap map[string]Topic, importerEventData importerM
 
 // AddTopicWithParents adds a topic and its parents to the uniqueTopics map if they don't already exist.
 // It recursively adds parent topics until it reaches the root topic.
-func AddTopicWithParents(slug string, topicsMap map[string]Topic, uniqueTopics map[string]struct{}) {
-	if topic, exists := topicsMap[slug]; exists {
-		if _, alreadyProcessed := uniqueTopics[topic.ID]; !alreadyProcessed {
-			uniqueTopics[topic.ID] = struct{}{}
-			if topic.ParentSlug != "" {
-				AddTopicWithParents(topic.ParentSlug, topicsMap, uniqueTopics)
+func AddTopicWithParents(slug, parentSlug string, topicsMap map[string]Topic, uniqueTopics map[string]struct{}) {
+	for _, topic := range topicsMap {
+		// Find the topic by matching both slug and parentSlug
+		if topic.Slug == slug && topic.ParentSlug == parentSlug {
+			if _, alreadyProcessed := uniqueTopics[topic.ID]; !alreadyProcessed {
+				uniqueTopics[topic.ID] = struct{}{}
+				if topic.ParentSlug != "" {
+					// Recursively add the parent topic
+					AddTopicWithParents(topic.ParentSlug, "", topicsMap, uniqueTopics)
+				}
 			}
+			return // Stop processing once the correct topic is found and added
 		}
 	}
 }
