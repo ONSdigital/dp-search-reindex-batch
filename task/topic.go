@@ -100,7 +100,7 @@ func processTopic(ctx context.Context, serviceAuthToken string, topicClient topi
 		topicDetails := mapTopicModelToStruct(*topic.Current, parentTopicID, parentTopicSlug)
 
 		// Add the current topic to the topicMap
-		topicMap[topic.Current.Slug] = topicDetails
+		topicMap[topic.Current.ID] = topicDetails
 
 		// Mark this topic as processed
 		processedTopics[topicID] = struct{}{}

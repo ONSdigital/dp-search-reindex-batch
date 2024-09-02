@@ -96,8 +96,8 @@ func TestLoadTopicsMap(t *testing.T) {
 		topicMap, err := LoadTopicsMap(ctx, serviceAuthToken, mockClient)
 		So(err, ShouldBeNil)
 		So(len(topicMap), ShouldEqual, 3)
-		So(topicMap["economy"].ID, ShouldEqual, "6734")
-		So(topicMap["business"].ID, ShouldEqual, "1234")
+		So(topicMap["6734"].Slug, ShouldEqual, "economy")
+		So(topicMap["1234"].Slug, ShouldEqual, "business")
 	})
 
 	Convey("When LoadTopicsMap is called with enableTopicTagging is enabled and GetRootTopicsPrivate returns an error", t, func() {

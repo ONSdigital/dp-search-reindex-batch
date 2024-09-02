@@ -582,3 +582,45 @@ func TestTagImportDataTopics(t *testing.T) {
 		})
 	})
 }
+
+func TestAddTopicWithParents(t *testing.T) {
+	Convey("Given a set of topics with duplicate slugs and parent relationships", t, func() {
+		topicMap := map[string]Topic{
+			"4116": {ID: "4116", Slug: "news", ParentSlug: ""},
+			"3543": {ID: "3543", Slug: "news", ParentSlug: "news"},
+			"1249": {ID: "1249", Slug: "statementsandletters", ParentSlug: "news"},
+		}
+
+		Convey("When adding the root topic with slug 'news'", func() {
+			uniqueTopics := make(map[string]struct{})
+			AddTopicWithParents("news", "", topicMap, uniqueTopics)
+
+			Convey("It should add the root topic only", func() {
+				So(uniqueTopics, ShouldContainKey, "4116")
+				So(uniqueTopics, ShouldHaveLength, 1)
+			})
+		})
+
+		Convey("When adding the subtopic with slug 'news' which has a parent 'news", func() {
+			uniqueTopics := make(map[string]struct{})
+			AddTopicWithParents("news", "news", topicMap, uniqueTopics)
+
+			Convey("It should add both the parent and child topics", func() {
+				So(uniqueTopics, ShouldContainKey, "4116")
+				So(uniqueTopics, ShouldContainKey, "3543")
+				So(uniqueTopics, ShouldHaveLength, 2)
+			})
+		})
+
+		Convey("When adding the subtopic with slug 'statementsandletters' which has a parent 'news'", func() {
+			uniqueTopics := make(map[string]struct{})
+			AddTopicWithParents("statementsandletters", "news", topicMap, uniqueTopics)
+
+			Convey("It should add the statementsandletters topic and its parent 'news'", func() {
+				So(uniqueTopics, ShouldContainKey, "4116")
+				So(uniqueTopics, ShouldContainKey, "1249")
+				So(uniqueTopics, ShouldHaveLength, 2)
+			})
+		})
+	})
+}
