@@ -154,8 +154,10 @@ func uriProducer(ctx context.Context, tracker *Tracker, errorChan chan error, z 
 			return
 		}
 		for _, item := range items {
-			uriChan <- item.URI
-			tracker.Inc("uri")
+			if !strings.Contains(item.URI, "/timeseries/") && !strings.Contains(item.URI, "/previous/") {
+				uriChan <- item.URI
+				tracker.Inc("uri")
+			}
 		}
 		log.Info(ctx, "finished listing uris")
 	}()
