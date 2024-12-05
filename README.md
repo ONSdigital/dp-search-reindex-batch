@@ -30,6 +30,7 @@ Batch nomad job for reindexing search
 | TOPIC_API_URL               | "http://localhost:25300" | URL of the Topic API                                                       |
 | TRACKER_INTERVAL            | 5s                       | Interval for progress tracker summary logging                              |
 | ZEBEDEE_URL                 | "http://localhost:8082"  | URL of publishing zebedee                                                  |
+| ZEBEDEE_TIMEOUT             | 2m                       | Timeout for Zebedee endpoints - published index can take > 2 minutes       |
 
 ### Local Prerequisites
 

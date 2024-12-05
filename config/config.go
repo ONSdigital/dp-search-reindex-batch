@@ -23,6 +23,7 @@ type Config struct {
 	TopicTaggingEnabled    bool          `envconfig:"ENABLE_TOPIC_TAGGING"`
 	TrackerInterval        time.Duration `envconfig:"TRACKER_INTERVAL"`
 	ZebedeeURL             string        `envconfig:"ZEBEDEE_URL"`
+	ZebedeeTimeout         time.Duration `envconfig:"ZEBEDEE_TIMEOUT"`
 }
 
 var cfg *Config
@@ -36,6 +37,7 @@ func Get() (*Config, error) {
 
 	cfg = &Config{
 		ZebedeeURL:             "http://localhost:8082",
+		ZebedeeTimeout:         2 * time.Minute,
 		ElasticSearchURL:       "http://localhost:11200",
 		SignESRequests:         false,
 		AwsRegion:              "eu-west-2",
