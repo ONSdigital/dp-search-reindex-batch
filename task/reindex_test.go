@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/ONSdigital/dp-api-clients-go/v2/dataset"
+	"github.com/ONSdigital/dp-api-clients-go/v2/zebedee"
 	dpEsClient "github.com/ONSdigital/dp-elasticsearch/v3/client"
 	v710 "github.com/ONSdigital/dp-elasticsearch/v3/client/elasticsearch/v710"
 	mocks "github.com/ONSdigital/dp-search-api/clients/mock"
@@ -39,6 +40,47 @@ func TestCreateIndexName(t *testing.T) {
 		Convey("And calling createIndexName again results in a different name", func() {
 			s1 := createIndexName(testIndexName)
 			So(s1, ShouldNotEqual, s0)
+		})
+	})
+}
+
+func TestURIProducer(t *testing.T) {
+	Convey("Given a zebedeeClient that returns results", t, func() {
+		tracker := &Tracker{}
+		errChan := make(chan error, 1)
+
+		zebClient := &mocks.ZebedeeClientMock{
+			GetPublishedIndexFunc: func(ctx context.Context, piRequest *zebedee.PublishedIndexRequestParams) (zebedee.PublishedIndex, error) {
+				return zebedee.PublishedIndex{
+					Count: 4,
+					Items: []zebedee.PublishedIndexItem{
+						zebedee.PublishedIndexItem{URI: "/economy"},
+						zebedee.PublishedIndexItem{URI: "/timeseries/ec12/previous/nov2011"},
+						zebedee.PublishedIndexItem{URI: "/timeseries/ec12"},
+						zebedee.PublishedIndexItem{URI: "/dataset/ec12/previous"},
+					},
+					Limit:      20,
+					Offset:     0,
+					TotalCount: 4,
+				}, nil
+			},
+		}
+
+		Convey("When the URI Producer is called", func() {
+			uriChan := uriProducer(ctx, tracker, errChan, zebClient)
+
+			Convey("Then the expected uris are sent to the uris channel", func() {
+				uris := make([]string, 3)
+				for uri := range uriChan {
+					fmt.Println(uri)
+					uris = append(uris, uri)
+				}
+
+				So(uris, ShouldContain, "/economy")
+				So(uris, ShouldContain, "/timeseries/ec12")
+				So(uris, ShouldContain, "/dataset/ec12/previous")
+				So(uris, ShouldNotContain, "/timeseries/ec12/previous/nov2011")
+			})
 		})
 	})
 }
