@@ -104,18 +104,26 @@ func reindex(ctx context.Context, cfg *config.Config) error {
 	t := &Tracker{}
 	errChan := make(chan error, 1)
 
-	topicsMapChan := retrieveTopicsMap(ctx, errChan, cfg.TopicTaggingEnabled, cfg.ServiceAuthToken, topicClient)
+	docChannels := make([]chan Document, 0)
 
-	datasetChan, _ := extractDatasets(ctx, t, errChan, datasetClient, cfg.ServiceAuthToken, cfg.PaginationLimit)
-	editionChan, _ := retrieveDatasetEditions(ctx, t, datasetClient, datasetChan, cfg.ServiceAuthToken, cfg.MaxDatasetExtractions)
-	metadataChan, _ := retrieveLatestMetadata(ctx, t, datasetClient, editionChan, cfg.ServiceAuthToken, cfg.MaxDatasetExtractions)
-	transformedMetaChan := metaDataTransformer(ctx, t, errChan, metadataChan, cfg.MaxDatasetTransforms)
+	if cfg.EnableDatasetAPIReindex {
+		datasetChan, _ := extractDatasets(ctx, t, errChan, datasetClient, cfg.ServiceAuthToken, cfg.PaginationLimit)
+		editionChan, _ := retrieveDatasetEditions(ctx, t, datasetClient, datasetChan, cfg.ServiceAuthToken, cfg.MaxDatasetExtractions)
+		metadataChan, _ := retrieveLatestMetadata(ctx, t, datasetClient, editionChan, cfg.ServiceAuthToken, cfg.MaxDatasetExtractions)
+		transformedMetaChan := metaDataTransformer(ctx, t, errChan, metadataChan, cfg.MaxDatasetTransforms)
+		docChannels = append(docChannels, transformedMetaChan)
+	}
 
-	urisChan := uriProducer(ctx, t, errChan, zebClient)
-	extractedChan := docExtractor(ctx, t, errChan, zebClient, urisChan, cfg.MaxDocumentExtractions)
-	transformedDocChan := docTransformer(ctx, t, errChan, extractedChan, cfg.MaxDocumentTransforms, topicsMapChan)
+	if cfg.EnableZebedeeReindex {
+		topicsMapChan := retrieveTopicsMap(ctx, errChan, cfg.TopicTaggingEnabled, cfg.ServiceAuthToken, topicClient)
 
-	joinedChan := joinDocChannels(ctx, t, transformedDocChan, transformedMetaChan)
+		urisChan := uriProducer(ctx, t, errChan, zebClient)
+		extractedChan := docExtractor(ctx, t, errChan, zebClient, urisChan, cfg.MaxDocumentExtractions)
+		transformedDocChan := docTransformer(ctx, t, errChan, extractedChan, cfg.MaxDocumentTransforms, topicsMapChan)
+		docChannels = append(docChannels, transformedDocChan)
+	}
+
+	joinedChan := joinDocChannels(ctx, t, docChannels...)
 	indexedChan := docIndexer(ctx, t, errChan, esClient, joinedChan)
 
 	doneChan := summarize(ctx, indexedChan)
@@ -454,7 +462,10 @@ func docIndexer(ctx context.Context, tracker *Tracker, errorChan chan error, dpE
 
 		indexDoc(ctx, tracker, dpEsIndexClient, transformedChan, indexedChan, indexName)
 
-		dpEsIndexClient.BulkIndexClose(ctx)
+		err = dpEsIndexClient.BulkIndexClose(ctx)
+		if err != nil {
+			errorChan <- err
+		}
 		log.Info(ctx, "finished indexing docs")
 
 		err = swapAliases(ctx, dpEsIndexClient, indexName)
@@ -545,7 +556,7 @@ func cleanOldIndices(ctx context.Context, dpEsIndexClient dpEsClient.Client) err
 		return err
 	}
 
-	toDelete := []string{}
+	var toDelete []string
 	for index, details := range r {
 		if strings.HasPrefix(index, "ons") && !doesIndexHaveAlias(details, "ons") {
 			toDelete = append(toDelete, index)
@@ -637,16 +648,16 @@ func retrieveDatasetEditions(ctx context.Context, tracker *Tracker, datasetClien
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				for dataset := range datasetChan {
-					if dataset.Current == nil {
+				for dataSet := range datasetChan {
+					if dataSet.Current == nil {
 						continue
 					}
-					editions, err := datasetClient.GetFullEditionsDetails(ctx, "", serviceAuthToken, dataset.CollectionID, dataset.Current.ID)
+					editions, err := datasetClient.GetFullEditionsDetails(ctx, "", serviceAuthToken, dataSet.CollectionID, dataSet.Current.ID)
 					if err != nil {
 						log.Warn(ctx, "error retrieving editions", log.Data{
 							"err":           err,
-							"dataset_id":    dataset.Current.ID,
-							"collection_id": dataset.CollectionID,
+							"dataset_id":    dataSet.Current.ID,
+							"collection_id": dataSet.CollectionID,
 						})
 						continue
 					}
@@ -655,7 +666,7 @@ func retrieveDatasetEditions(ctx context.Context, tracker *Tracker, datasetClien
 							continue
 						}
 						editionMetadataChan <- DatasetEditionMetadata{
-							id:        dataset.Current.ID,
+							id:        dataSet.Current.ID,
 							editionID: editions[i].Current.Edition,
 							version:   editions[i].Current.Links.LatestVersion.ID,
 						}
