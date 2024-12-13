@@ -55,8 +55,8 @@ func Get() (*Config, error) {
 		TrackerInterval:         5 * time.Second,
 		TopicAPIURL:             "http://localhost:25300",
 		TopicTaggingEnabled:     false,
-		EnableDatasetAPIReindex: true,
-		EnableZebedeeReindex:    true,
+		EnableDatasetAPIReindex: false,
+		EnableZebedeeReindex:    false,
 		OtherUpstreamServices:   []string{"http://localhost:29600"},
 	}
 

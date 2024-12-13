@@ -123,6 +123,11 @@ func reindex(ctx context.Context, cfg *config.Config) error {
 		docChannels = append(docChannels, transformedDocChan)
 	}
 
+	//for _, upStreamServiceURL := range cfg.OtherUpstreamServices {
+	//	//TODO go through each upstream service in the array
+	//	//resourceDataChan, _ retrieveResourceData(ctx, t, upstreamServiceClient, cfg.ServiceAuthToken, cfg.MaxResourceExtractions)
+	//}
+
 	joinedChan := joinDocChannels(ctx, t, docChannels...)
 	indexedChan := docIndexer(ctx, t, errChan, esClient, joinedChan)
 
@@ -151,6 +156,23 @@ func reindex(ctx context.Context, cfg *config.Config) error {
 
 	return nil
 }
+
+//func getResources(resourceUrl string) {
+//	//response, err := http.Get("http://pokeapi.co/api/v2/pokedex/kanto/")
+//	response, err := http.Get(resourceUrl)
+//
+//	if err != nil {
+//		fmt.Print(err.Error())
+//		os.Exit(1)
+//	}
+//
+//	responseData, err := ioutil.ReadAll(response.Body)
+//	if err != nil {
+//		log.Fatal(err)
+//	}
+//	fmt.Println(string(responseData))
+//
+//}
 
 func uriProducer(ctx context.Context, tracker *Tracker, errorChan chan error, z clients.ZebedeeClient) chan string {
 	uriChan := make(chan string, defaultChannelBuffer)
