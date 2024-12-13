@@ -31,8 +31,8 @@ Batch nomad job for reindexing search
 | TRACKER_INTERVAL            | 5s                       | Interval for progress tracker summary logging                              |
 | ZEBEDEE_URL                 | "http://localhost:8082"  | URL of publishing zebedee                                                  |
 | ZEBEDEE_TIMEOUT             | 2m                       | Timeout for Zebedee endpoints - published index can take > 2 minutes       |
-| ENABLE_DATASET_API_REINDEX  | true                     | Whether to get documents from the Dataset API for reindexing or not        |
-| ENABLE_ZEBEDEE_REINDEX      | true                     | Whether to get documents from Zebedee for reindexing or not                |
+| ENABLE_DATASET_API_REINDEX  | false                    | Whether to get documents from the Dataset API for reindexing or not        |
+| ENABLE_ZEBEDEE_REINDEX      | false                    | Whether to get documents from Zebedee for reindexing or not                |
 
 ### Local Prerequisites
 
