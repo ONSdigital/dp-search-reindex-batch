@@ -39,8 +39,8 @@ func TestConfig(t *testing.T) {
 					TopicAPIURL:             "http://localhost:25300",
 					TopicTaggingEnabled:     false,
 					ZebedeeTimeout:          2 * time.Minute,
-					EnableDatasetAPIReindex: true,
-					EnableZebedeeReindex:    true,
+					EnableDatasetAPIReindex: false,
+					EnableZebedeeReindex:    false,
 				},
 				)
 			})
