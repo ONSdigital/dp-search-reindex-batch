@@ -26,6 +26,7 @@ type Config struct {
 	ZebedeeTimeout          time.Duration `envconfig:"ZEBEDEE_TIMEOUT"`
 	EnableDatasetAPIReindex bool          `envconfig:"ENABLE_DATASET_API_REINDEX"`
 	EnableZebedeeReindex    bool          `envconfig:"ENABLE_ZEBEDEE_REINDEX"`
+	OtherUpstreamServices   []string      `envconfig:"OTHER_UPSTREAM_SERVICES"`
 }
 
 var cfg *Config
@@ -56,6 +57,7 @@ func Get() (*Config, error) {
 		TopicTaggingEnabled:     false,
 		EnableDatasetAPIReindex: true,
 		EnableZebedeeReindex:    true,
+		OtherUpstreamServices:   []string{"http://localhost:29600"},
 	}
 
 	return cfg, envconfig.Process("", cfg)

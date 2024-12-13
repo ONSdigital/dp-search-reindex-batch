@@ -41,6 +41,7 @@ func TestConfig(t *testing.T) {
 					ZebedeeTimeout:          2 * time.Minute,
 					EnableDatasetAPIReindex: true,
 					EnableZebedeeReindex:    true,
+					OtherUpstreamServices:   []string{"http://localhost:29600"},
 				},
 				)
 			})
