@@ -6,10 +6,13 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	upstreamModels "github.com/ONSdigital/dis-search-upstream-stub/models"
+	upstreamStubSDK "github.com/ONSdigital/dis-search-upstream-stub/sdk"
 	"github.com/ONSdigital/dp-api-clients-go/v2/dataset"
 	"github.com/ONSdigital/dp-api-clients-go/v2/zebedee"
 	dpEs "github.com/ONSdigital/dp-elasticsearch/v3"
@@ -101,6 +104,23 @@ func reindex(ctx context.Context, cfg *config.Config) error {
 		return err
 	}
 
+	// Create a new client for each url and endpoint pair in the OtherUpstreamServices array
+	// Add each new client to an array of clients
+	numUpstreamServices := len(cfg.OtherUpstreamServices)
+	upstreamServiceClients := make([]*upstreamStubSDK.Client, numUpstreamServices)
+
+	for i := 0; i < numUpstreamServices; i++ {
+		serviceURL := cfg.OtherUpstreamServices[i][0]
+		serviceEndpoint := cfg.OtherUpstreamServices[i][1]
+		upstreamStubClient := upstreamStubSDK.New(serviceURL, serviceEndpoint)
+		if upstreamStubClient == nil {
+			err := errors.New("failed to create search upstream stub client for upstream service: " + serviceURL + serviceEndpoint)
+			log.Error(ctx, err.Error(), err)
+			return err
+		}
+		upstreamServiceClients[i] = upstreamStubClient
+	}
+
 	t := &Tracker{}
 	errChan := make(chan error, 1)
 
@@ -123,10 +143,17 @@ func reindex(ctx context.Context, cfg *config.Config) error {
 		docChannels = append(docChannels, transformedDocChan)
 	}
 
-	//for _, upStreamServiceURL := range cfg.OtherUpstreamServices {
-	//	//TODO go through each upstream service in the array
-	//	//resourceDataChan, _ retrieveResourceData(ctx, t, upstreamServiceClient, cfg.ServiceAuthToken, cfg.MaxResourceExtractions)
-	//}
+	if cfg.EnableOtherServicesReindex {
+		for i := 0; i < numUpstreamServices; i++ {
+			// Firstly create a channel of Resource items
+			resourceChan := getResourceItems(ctx, errChan, upstreamServiceClients[i], cfg.MaxDocumentExtractions)
+			log.Info(ctx, "getting resource items", log.Data{"resourceChan": resourceChan})
+			// Next transform those Resource items into Document items
+			// transResourceChan := resourceTransformer(ctx, t, errChan, resourceChan, cfg.MaxDocumentTransforms)
+			//// Then append those Document items to the other Documents in the docChannels
+			// docChannels = append(docChannels, transResourceChan)
+		}
+	}
 
 	joinedChan := joinDocChannels(ctx, t, docChannels...)
 	indexedChan := docIndexer(ctx, t, errChan, esClient, joinedChan)
@@ -156,23 +183,6 @@ func reindex(ctx context.Context, cfg *config.Config) error {
 
 	return nil
 }
-
-//func getResources(resourceUrl string) {
-//	//response, err := http.Get("http://pokeapi.co/api/v2/pokedex/kanto/")
-//	response, err := http.Get(resourceUrl)
-//
-//	if err != nil {
-//		fmt.Print(err.Error())
-//		os.Exit(1)
-//	}
-//
-//	responseData, err := ioutil.ReadAll(response.Body)
-//	if err != nil {
-//		log.Fatal(err)
-//	}
-//	fmt.Println(string(responseData))
-//
-//}
 
 func uriProducer(ctx context.Context, tracker *Tracker, errorChan chan error, z clients.ZebedeeClient) chan string {
 	uriChan := make(chan string, defaultChannelBuffer)
@@ -226,6 +236,36 @@ func docExtractor(ctx context.Context, tracker *Tracker, errorChan chan error, z
 		log.Info(ctx, "finished extracting docs")
 	}()
 	return
+}
+
+// getResourceItems gets the specified maximum number of Resources from the upstream service and then puts each Resource item into a channel, which it returns.
+func getResourceItems(ctx context.Context, errChan chan error, upstreamStubClient *upstreamStubSDK.Client, maxExtractions int) (resourcesChan chan upstreamModels.Resource) {
+	resourcesChan = make(chan upstreamModels.Resource, defaultChannelBuffer)
+	go func() {
+		defer close(resourcesChan)
+
+		var opts upstreamStubSDK.Options
+		var limitParam url.Values = make(map[string][]string)
+		limitParam.Add("limit", strconv.Itoa(maxExtractions))
+		opts.Query = limitParam
+		// an alternative, if fixed in the upstream stub, would be: opts.Limit(strconv.Itoa(maxExtractions))
+		resources, err := upstreamStubClient.GetResources(ctx, opts)
+		if err != nil {
+			errChan <- err
+			log.Error(ctx, "failed to get resources from search upstream stub", err, log.Data{"options": opts})
+			return
+		}
+
+		resourceList := resources.Items
+		numItems := len(resourceList)
+
+		for i := 0; i < numItems; i++ {
+			resourcesChan <- resourceList[i]
+		}
+
+		log.Info(ctx, "finished getting resources")
+	}()
+	return resourcesChan
 }
 
 func extractDoc(ctx context.Context, tracker *Tracker, errorChan chan error, z clients.ZebedeeClient, uriChan <-chan string, extractedChan chan Document) {
