@@ -149,6 +149,7 @@ func reindex(ctx context.Context, cfg *config.Config) error {
 			resourceChan := getResourceItems(ctx, errChan, upstreamServiceClients[i], cfg.MaxDocumentExtractions)
 			log.Info(ctx, "getting resource items", log.Data{"resourceChan": resourceChan})
 			// Next transform those Resource items into Document items
+
 			// transResourceChan := resourceTransformer(ctx, t, errChan, resourceChan, cfg.MaxDocumentTransforms)
 			//// Then append those Document items to the other Documents in the docChannels
 			// docChannels = append(docChannels, transResourceChan)
@@ -245,10 +246,11 @@ func getResourceItems(ctx context.Context, errChan chan error, upstreamStubClien
 		defer close(resourcesChan)
 
 		var opts upstreamStubSDK.Options
-		var limitParam url.Values = make(map[string][]string)
-		limitParam.Add("limit", strconv.Itoa(maxExtractions))
-		opts.Query = limitParam
-		// an alternative, if fixed in the upstream stub, would be: opts.Limit(strconv.Itoa(maxExtractions))
+		//var limitParam url.Values = make(map[string][]string)
+		//limitParam.Add("limit", strconv.Itoa(maxExtractions))
+		//opts.Query = limitParam
+		// an alternative, if fixed in the upstream stub, would be:
+		opts.Limit(strconv.Itoa(maxExtractions))
 		resources, err := upstreamStubClient.GetResources(ctx, opts)
 		if err != nil {
 			errChan <- err
