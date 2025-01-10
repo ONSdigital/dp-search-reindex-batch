@@ -8,6 +8,7 @@ import (
 	"sync"
 	"testing"
 
+	upstreamModels "github.com/ONSdigital/dis-search-upstream-stub/models"
 	"github.com/ONSdigital/dp-api-clients-go/v2/dataset"
 	"github.com/ONSdigital/dp-api-clients-go/v2/zebedee"
 	dpEsClient "github.com/ONSdigital/dp-elasticsearch/v3/client"
@@ -216,6 +217,100 @@ func TestTransformMetadataDoc(t *testing.T) {
 				for _, dim := range expected.Dimensions {
 					So(esModel.Dimensions, ShouldContain, dim)
 				}
+
+				wg.Wait()
+			})
+		})
+	})
+}
+
+func TestTransformResourceItem(t *testing.T) {
+	Convey("Given a resource channel and a transformed document channel and a topics map", t, func() {
+		resourceChan := make(chan upstreamModels.Resource, 1)
+		transformedResChan := make(chan Document, 1)
+		tracker := &Tracker{}
+		errChan := make(chan error, 1)
+
+		topicsMap := make(map[string]Topic)
+		topicsMap["a"] = Topic{ID: "id",
+			Slug:       "economy",
+			ParentID:   "",
+			ParentSlug: ""}
+
+		Convey("When a release resource item is sent to the channel and consumed by transformResourceItem", func() {
+			sent := upstreamModels.Resource{
+				URI:             "/a/uri",
+				URIOld:          "/an/old/uri",
+				ContentType:     "release",
+				CDID:            "A321B",
+				DatasetID:       "ASELECTIONOFNUMBERSANDLETTERS456",
+				Edition:         "an edition",
+				MetaDescription: "a description",
+				ReleaseDate:     "2024-11-21:20:14Z",
+				Summary:         "a summary",
+				Title:           "a title",
+				Language:        "string",
+				Survey:          "string",
+				CanonicalTopic:  "string",
+				Cancelled:       true,
+				Finalised:       true,
+				Published:       true,
+				ProvisionalDate: "October-November 2024",
+				DateChanges: []upstreamModels.ReleaseDateDetails{
+					{
+						ChangeNotice: "a change_notice",
+						PreviousDate: "2023-11-21:20:14Z",
+					},
+				},
+			}
+
+			expected := &importerModels.EsModel{
+				URI:             "/a/uri",
+				Edition:         "an edition",
+				DataType:        "release",
+				CDID:            "A321B",
+				DatasetID:       "ASELECTIONOFNUMBERSANDLETTERS456",
+				MetaDescription: "a description",
+				ReleaseDate:     "2024-11-21:20:14Z",
+				Summary:         "a summary",
+				Title:           "a title",
+				Topics:          []string{},
+				Language:        "string",
+				Survey:          "string",
+				CanonicalTopic:  "string",
+				Cancelled:       true,
+				Finalised:       true,
+				Published:       true,
+				ProvisionalDate: "October-November 2024",
+				DateChanges: []importerModels.ReleaseDateChange{
+					{
+						ChangeNotice: "a change_notice",
+						Date:         "2023-11-21:20:14Z",
+					},
+				},
+				PopulationType: &importerModels.EsPopulationType{Key: "", AggKey: "", Name: "", Label: ""},
+				Dimensions:     []importerModels.EsDimension(nil),
+			}
+
+			resourceChan <- sent
+			close(resourceChan)
+
+			wg := &sync.WaitGroup{}
+			wg.Add(1)
+			go func(waitGroup *sync.WaitGroup) {
+				transformResourceItem(ctx, tracker, errChan, resourceChan, transformedResChan, topicsMap)
+				wg.Done()
+			}(wg)
+
+			Convey("Then the expected elasticsearch document is sent to the transformed channel", func() {
+				transformed := <-transformedResChan
+				So(transformed.ID, ShouldEqual, "/a/uri")
+				So(transformed.URI, ShouldEqual, "/a/uri")
+
+				esModel := &importerModels.EsModel{}
+				err := json.Unmarshal(transformed.Body, esModel)
+				So(err, ShouldBeNil)
+				So(esModel, ShouldResemble, expected)
 
 				wg.Wait()
 			})

@@ -247,10 +247,6 @@ func getResourceItems(ctx context.Context, errChan chan error, upstreamStubClien
 		defer close(resourcesChan)
 
 		var opts upstreamStubSDK.Options
-		//var limitParam url.Values = make(map[string][]string)
-		//limitParam.Add("limit", strconv.Itoa(maxExtractions))
-		//opts.Query = limitParam
-		// an alternative, if fixed in the upstream stub, would be:
 		opts.Limit(strconv.Itoa(maxExtractions))
 		resources, err := upstreamStubClient.GetResources(ctx, opts)
 		if err != nil {
