@@ -5,9 +5,10 @@ go 1.23
 replace github.com/ONSdigital/dis-search-upstream-stub => /Users/cookel/EllasFiles/DpCodeRepos/dis-search-upstream-stub
 
 require (
-	github.com/ONSdigital/dp-api-clients-go/v2 v2.261.0
+	github.com/ONSdigital/dis-search-upstream-stub v1.2.1
+	github.com/ONSdigital/dp-api-clients-go/v2 v2.262.0
 	github.com/ONSdigital/dp-elasticsearch/v3 v3.0.1-alpha.4.0.20230308115225-bb7559a89d0c
-	github.com/ONSdigital/dp-net/v2 v2.12.0
+	github.com/ONSdigital/dp-net/v2 v2.13.0
 	github.com/ONSdigital/dp-search-api v1.45.0
 	github.com/ONSdigital/dp-search-data-extractor v1.3.1
 	github.com/ONSdigital/dp-search-data-importer v1.2.0
@@ -18,8 +19,6 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/smartystreets/goconvey v1.8.1
 )
-
-require github.com/ONSdigital/dis-search-upstream-stub v1.2.1
 
 require (
 	github.com/ONSdigital/dp-healthcheck v1.6.3 // indirect
