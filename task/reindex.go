@@ -114,7 +114,7 @@ func reindex(ctx context.Context, cfg *config.Config) error {
 		serviceEndpoint := cfg.OtherUpstreamServices[i][1]
 		upstreamStubClient := upstreamStubSDK.New(serviceURL, serviceEndpoint)
 		if upstreamStubClient == nil {
-			err := errors.New("failed to create search upstream stub client for upstream service: " + serviceURL + serviceEndpoint)
+			err := errors.New("failed to create client for upstream service: " + serviceURL + serviceEndpoint)
 			log.Error(ctx, err.Error(), err)
 			return err
 		}
@@ -251,7 +251,7 @@ func getResourceItems(ctx context.Context, errChan chan error, upstreamStubClien
 		resources, err := upstreamStubClient.GetResources(ctx, opts)
 		if err != nil {
 			errChan <- err
-			log.Error(ctx, "failed to get resources from search upstream stub", err, log.Data{"options": opts})
+			log.Error(ctx, "failed to get resources from upstream service", err, log.Data{"options": opts})
 			return
 		}
 

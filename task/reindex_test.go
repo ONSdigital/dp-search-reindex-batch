@@ -55,10 +55,10 @@ func TestURIProducer(t *testing.T) {
 				return zebedee.PublishedIndex{
 					Count: 4,
 					Items: []zebedee.PublishedIndexItem{
-						zebedee.PublishedIndexItem{URI: "/economy"},
-						zebedee.PublishedIndexItem{URI: "/timeseries/ec12/previous/nov2011"},
-						zebedee.PublishedIndexItem{URI: "/timeseries/ec12"},
-						zebedee.PublishedIndexItem{URI: "/dataset/ec12/previous"},
+						{URI: "/economy"},
+						{URI: "/timeseries/ec12/previous/nov2011"},
+						{URI: "/timeseries/ec12"},
+						{URI: "/dataset/ec12/previous"},
 					},
 					Limit:      20,
 					Offset:     0,
