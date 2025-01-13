@@ -1,5 +1,5 @@
-github.com/ONSdigital/dis-search-upstream-stub v1.2.1 h1:sWAf/oX6TzbXBUhOuywxewfMIU/PRhGfiiIwua69qV8=
-github.com/ONSdigital/dis-search-upstream-stub v1.2.1/go.mod h1:VKOU08d8eJQT7UtfAZonNuqN9drXemE82UpHP8VeVDs=
+github.com/ONSdigital/dis-search-upstream-stub v1.3.0 h1:VL6EuGhN+Mwq1JL1BlKQwVuGgzKuGrn+hAfKlyDWKfs=
+github.com/ONSdigital/dis-search-upstream-stub v1.3.0/go.mod h1:m+4Ul68tiNJSMeXaJIltqPdBnxNOB6pTp+LgzFn7edM=
 github.com/ONSdigital/dp-api-clients-go/v2 v2.262.0 h1:dm6SUMYw2dDtA6oTIo7VIUspRv5GLZ+0RLGhwg9yUWU=
 github.com/ONSdigital/dp-api-clients-go/v2 v2.262.0/go.mod h1:+4jW6BFCJwldSIwNVcclrTVrFVlx0D3e3C3CzUMvsuA=
 github.com/ONSdigital/dp-elasticsearch/v3 v3.0.1-alpha.4.0.20230308115225-bb7559a89d0c h1:eSAGAcjij4KnrdtxZPYZphBYls5aJLHRwNhm8EtlK3Q=

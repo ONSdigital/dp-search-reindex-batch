@@ -2,10 +2,8 @@ module github.com/ONSdigital/dp-search-reindex-batch
 
 go 1.23
 
-replace github.com/ONSdigital/dis-search-upstream-stub => /Users/cookel/EllasFiles/DpCodeRepos/dis-search-upstream-stub
-
 require (
-	github.com/ONSdigital/dis-search-upstream-stub v1.2.1
+	github.com/ONSdigital/dis-search-upstream-stub v1.3.0
 	github.com/ONSdigital/dp-api-clients-go/v2 v2.262.0
 	github.com/ONSdigital/dp-elasticsearch/v3 v3.0.1-alpha.4.0.20230308115225-bb7559a89d0c
 	github.com/ONSdigital/dp-net/v2 v2.13.0
