@@ -150,7 +150,7 @@ func reindex(ctx context.Context, cfg *config.Config) error {
 			resourceChan := getResourceItems(ctx, errChan, upstreamServiceClients[i], cfg.MaxDocumentExtractions)
 			log.Info(ctx, "getting resource items", log.Data{"resourceChan": resourceChan})
 			// Next transform those Resource items into Document objects
-			transformedResChan := resTransformer(ctx, t, errChan, resourceChan, cfg.MaxDocumentTransforms, topicsMapChan)
+			transformedResChan := resourceTransformer(ctx, t, errChan, resourceChan, cfg.MaxDocumentTransforms, topicsMapChan)
 			log.Info(ctx, "getting documents", log.Data{"docs in transformedResChan": transformedResChan})
 			// Then append those Document items to the other Documents in the docChannels
 			docChannels = append(docChannels, transformedResChan)
@@ -307,7 +307,7 @@ func docTransformer(ctx context.Context, tracker *Tracker, errChan chan error, e
 	return transformedChan
 }
 
-func resTransformer(ctx context.Context, tracker *Tracker, errChan chan error, resourceChan chan upstreamModels.Resource, maxTransforms int, topicsMapChan chan map[string]Topic) chan Document {
+func resourceTransformer(ctx context.Context, tracker *Tracker, errChan chan error, resourceChan chan upstreamModels.Resource, maxTransforms int, topicsMapChan chan map[string]Topic) chan Document {
 	var topicsMap map[string]Topic
 	for tm := range topicsMapChan {
 		topicsMap = tm
