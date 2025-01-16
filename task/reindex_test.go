@@ -343,9 +343,9 @@ func TestTransformResourceItem(t *testing.T) {
 				Summary:         "a summary",
 				Title:           "a title",
 				Topics:          []string{},
-				Language:        "",
-				Survey:          "",
-				CanonicalTopic:  "",
+				Language:        "string",
+				Survey:          "string",
+				CanonicalTopic:  "string",
 				PopulationType:  &importerModels.EsPopulationType{Key: "", AggKey: "", Name: "", Label: ""},
 			}
 

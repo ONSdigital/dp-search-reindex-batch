@@ -26,6 +26,9 @@ func MapResourceToSearchDataImport(resourceItem upstreamModels.Resource) extract
 		ReleaseDate:     resourceItem.ReleaseDate,
 		Title:           resourceItem.Title,
 		Topics:          resourceItem.Topics,
+		Survey:          resourceItem.Survey,
+		Language:        resourceItem.Language,
+		CanonicalTopic:  resourceItem.CanonicalTopic,
 	}
 	if resourceItem.Edition != "" {
 		searchData.Edition = resourceItem.Edition
@@ -45,9 +48,6 @@ func MapResourceToSearchDataImport(resourceItem upstreamModels.Resource) extract
 		searchData.Cancelled = resourceItem.Cancelled
 		searchData.Finalised = resourceItem.Finalised
 		searchData.ProvisionalDate = resourceItem.ProvisionalDate
-		searchData.Survey = resourceItem.Survey
-		searchData.Language = resourceItem.Language
-		searchData.CanonicalTopic = resourceItem.CanonicalTopic
 	}
 
 	return searchData
