@@ -18,8 +18,8 @@ import (
 	dpEs "github.com/ONSdigital/dp-elasticsearch/v3"
 	dpEsClient "github.com/ONSdigital/dp-elasticsearch/v3/client"
 	v710 "github.com/ONSdigital/dp-elasticsearch/v3/client/elasticsearch/v710"
-	"github.com/ONSdigital/dp-net/v2/awsauth"
-	dphttp2 "github.com/ONSdigital/dp-net/v2/http"
+	"github.com/ONSdigital/dp-net/v3/awsauth"
+	dphttp2 "github.com/ONSdigital/dp-net/v3/http"
 	"github.com/ONSdigital/dp-search-api/clients"
 	"github.com/ONSdigital/dp-search-api/elasticsearch"
 	extractorModels "github.com/ONSdigital/dp-search-data-extractor/models"
@@ -71,7 +71,7 @@ func reindex(ctx context.Context, cfg *config.Config) error {
 	esHTTPClient := hcClienter
 	if cfg.SignESRequests {
 		log.Info(ctx, "use a signing roundtripper client")
-		awsSignerRT, err := awsauth.NewAWSSignerRoundTripper("", "", cfg.AwsRegion, awsESService,
+		awsSignerRT, err := awsauth.NewAWSSignerRoundTripper(ctx, "", "", cfg.AwsRegion, awsESService,
 			awsauth.Options{TlsInsecureSkipVerify: cfg.AwsSecSkipVerify})
 		if err != nil {
 			log.Error(ctx, "failed to create http signer", err)
