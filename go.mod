@@ -3,13 +3,13 @@ module github.com/ONSdigital/dp-search-reindex-batch
 go 1.24
 
 require (
-	github.com/ONSdigital/dis-search-upstream-stub v1.4.0
+	github.com/ONSdigital/dis-search-upstream-stub v1.5.0
 	github.com/ONSdigital/dp-api-clients-go/v2 v2.266.0
-	github.com/ONSdigital/dp-elasticsearch/v3 v3.0.1-alpha.4.0.20230308115225-bb7559a89d0c
+	github.com/ONSdigital/dp-elasticsearch/v3 v3.0.2
 	github.com/ONSdigital/dp-net/v3 v3.2.1
-	github.com/ONSdigital/dp-search-api v1.49.2
+	github.com/ONSdigital/dp-search-api v1.49.3
 	github.com/ONSdigital/dp-search-data-extractor v1.6.0
-	github.com/ONSdigital/dp-search-data-importer v1.3.0
+	github.com/ONSdigital/dp-search-data-importer v1.3.1
 	github.com/ONSdigital/dp-topic-api v0.26.0
 	github.com/ONSdigital/log.go/v2 v2.4.5
 	github.com/elastic/go-elasticsearch/v7 v7.10.0
@@ -22,8 +22,8 @@ require (
 	github.com/ONSdigital/dp-healthcheck v1.6.4 // indirect
 	github.com/ONSdigital/dp-net/v2 v2.22.0 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.36.3 // indirect
-	github.com/aws/aws-sdk-go-v2/config v1.29.13 // indirect
-	github.com/aws/aws-sdk-go-v2/credentials v1.17.66 // indirect
+	github.com/aws/aws-sdk-go-v2/config v1.29.14 // indirect
+	github.com/aws/aws-sdk-go-v2/credentials v1.17.67 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.16.30 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/configsources v1.3.34 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.6.34 // indirect
@@ -32,7 +32,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.12.15 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sso v1.25.3 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.30.1 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sts v1.33.18 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sts v1.33.19 // indirect
 	github.com/aws/smithy-go v1.22.3 // indirect
 	github.com/fatih/color v1.18.0 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect
