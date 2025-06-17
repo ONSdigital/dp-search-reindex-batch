@@ -38,10 +38,15 @@ func TestConfig(t *testing.T) {
 					TrackerInterval:         5000 * time.Millisecond,
 					TopicAPIURL:             "http://localhost:25300",
 					TopicTaggingEnabled:     false,
-					ZebedeeTimeout:          2 * time.Minute,
+					ZebedeeTimeout:          3 * time.Minute,
 					EnableDatasetAPIReindex: false,
 					EnableZebedeeReindex:    false,
-					OtherUpstreamServices:   [][]string{{"http://localhost:29600", "/resources"}},
+					OtherUpstreamServices: UpStreamServices{
+						UpStreamService{
+							Host:     "http://localhost:29600",
+							Endpoint: "/resources",
+						},
+					},
 				},
 				)
 			})
