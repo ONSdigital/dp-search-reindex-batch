@@ -109,12 +109,10 @@ func reindex(ctx context.Context, cfg *config.Config) error {
 	numUpstreamServices := len(cfg.OtherUpstreamServices)
 	upstreamServiceClients := make([]*upstreamStubSDK.Client, numUpstreamServices)
 
-	for i := 0; i < numUpstreamServices; i++ {
-		serviceURL := cfg.OtherUpstreamServices[i][0]
-		serviceEndpoint := cfg.OtherUpstreamServices[i][1]
-		upstreamStubClient := upstreamStubSDK.New(serviceURL, serviceEndpoint)
+	for i, upstreamService := range cfg.OtherUpstreamServices {
+		upstreamStubClient := upstreamStubSDK.New(upstreamService.Host, upstreamService.Endpoint)
 		if upstreamStubClient == nil {
-			err := errors.New("failed to create client for upstream service: " + serviceURL + serviceEndpoint)
+			err := errors.New("failed to create client for upstream service: " + upstreamService.Host + upstreamService.Endpoint)
 			log.Error(ctx, err.Error(), err)
 			return err
 		}
