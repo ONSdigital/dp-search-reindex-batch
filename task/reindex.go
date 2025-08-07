@@ -194,9 +194,9 @@ func uriProducer(ctx context.Context, tracker *Tracker, errorChan chan error, z 
 			return
 		}
 		for _, item := range items {
-			// Exclude previous versions of any release/timeseries (e.g., v1, v2, etc.)
+			// Exclude previous versions of any release (e.g., v1, v2, etc.)
 			if strings.Contains(item.URI, "/previous/") {
-				log.Info(ctx, "not indexing uri as item is a previous version", log.Data{
+				log.Info(ctx, "not indexing uri as release is a previous version", log.Data{
 					"uri": item.URI,
 				})
 			} else {
