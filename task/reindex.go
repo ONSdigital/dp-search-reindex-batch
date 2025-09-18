@@ -369,6 +369,7 @@ func joinDocChannels(ctx context.Context, tracker *Tracker, inChans ...chan Docu
 	return outChan
 }
 
+// TODO: Update dp-search-data-extractor for migrationLink
 func transformZebedeeDoc(ctx context.Context, tracker *Tracker, errChan chan error, extractedChan chan Document, transformedChan chan<- Document, topicsMap map[string]Topic) {
 	for extractedDoc := range extractedChan {
 		var zebedeeData extractorModels.ZebedeeData
@@ -383,6 +384,16 @@ func transformZebedeeDoc(ctx context.Context, tracker *Tracker, errChan chan err
 			tracker.Inc("untransformed-notitle")
 			continue // move on to the next extracted doc
 		}
+
+		if !isEditorialSeries(zebedeeData.DataType) && zebedeeData.Description.MigrationLink != "" {
+			// Do not index if not editorial series and has migrationLink
+			log.Info(ctx, "content migrated - not indexing", log.Data{
+				"uri": zebedeeData.URI,
+			})
+			tracker.Inc("doc-migrated")
+			continue
+		}
+
 		exporterEventData := extractorModels.MapZebedeeDataToSearchDataImport(zebedeeData, -1)
 		importerEventData := convertToSearchDataModel(exporterEventData)
 		if topicsMap != nil {
@@ -899,4 +910,13 @@ func getIDsFromURI(uri string) (datasetID, editionID, versionID string, err erro
 	editionID = s[4]
 	versionID = s[6]
 	return
+}
+
+func isEditorialSeries(contentType string) bool {
+	editorialSeries := map[string]bool{
+		"bulletin":                true,
+		"article":                 true,
+		"compendium_landing_page": true,
+	}
+	return editorialSeries[contentType]
 }
