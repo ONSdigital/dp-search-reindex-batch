@@ -45,9 +45,6 @@ func TestLoadTopicsMap(t *testing.T) {
 	mockClient := &mockTopic.ClienterMock{
 		GetRootTopicsPrivateFunc: func(ctx context.Context, reqHeaders sdk.Headers) (*models.PrivateSubtopics, topicCliErr.Error) {
 			return &models.PrivateSubtopics{
-				Count:        2,
-				Offset:       0,
-				Limit:        50,
 				TotalCount:   2,
 				PrivateItems: &[]models.TopicResponse{testEconomyRootTopicPrivate, testBusinessRootTopicPrivate},
 			}, nil
@@ -117,9 +114,6 @@ func TestLoadTopicsMap(t *testing.T) {
 		mockClient = &mockTopic.ClienterMock{
 			GetRootTopicsPrivateFunc: func(ctx context.Context, reqHeaders sdk.Headers) (*models.PrivateSubtopics, topicCliErr.Error) {
 				return &models.PrivateSubtopics{
-					Count:        1,
-					Offset:       0,
-					Limit:        50,
 					TotalCount:   1,
 					PrivateItems: nil,
 				}, nil

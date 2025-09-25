@@ -4,13 +4,13 @@ go 1.24
 
 require (
 	github.com/ONSdigital/dis-search-upstream-stub v1.5.0
-	github.com/ONSdigital/dp-api-clients-go/v2 v2.266.0
+	github.com/ONSdigital/dp-api-clients-go/v2 v2.267.0
 	github.com/ONSdigital/dp-elasticsearch/v3 v3.0.2
-	github.com/ONSdigital/dp-net/v3 v3.2.1
+	github.com/ONSdigital/dp-net/v3 v3.3.0
 	github.com/ONSdigital/dp-search-api v1.49.3
-	github.com/ONSdigital/dp-search-data-extractor v1.6.0
+	github.com/ONSdigital/dp-search-data-extractor v1.9.0
 	github.com/ONSdigital/dp-search-data-importer v1.3.1
-	github.com/ONSdigital/dp-topic-api v0.26.0
+	github.com/ONSdigital/dp-topic-api v1.2.0
 	github.com/ONSdigital/log.go/v2 v2.4.5
 	github.com/elastic/go-elasticsearch/v7 v7.10.0
 	github.com/kelseyhightower/envconfig v1.4.0
@@ -20,7 +20,6 @@ require (
 
 require (
 	github.com/ONSdigital/dp-healthcheck v1.6.4 // indirect
-	github.com/ONSdigital/dp-net/v2 v2.22.0 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.36.3 // indirect
 	github.com/aws/aws-sdk-go-v2/config v1.29.14 // indirect
 	github.com/aws/aws-sdk-go-v2/credentials v1.17.67 // indirect
@@ -35,7 +34,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sts v1.33.19 // indirect
 	github.com/aws/smithy-go v1.22.3 // indirect
 	github.com/fatih/color v1.18.0 // indirect
-	github.com/go-logr/logr v1.4.2 // indirect
+	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/gopherjs/gopherjs v1.17.2 // indirect
 	github.com/gorilla/mux v1.8.1 // indirect
@@ -46,9 +45,9 @@ require (
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/smarty/assertions v1.16.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
-	go.opentelemetry.io/otel v1.35.0 // indirect
-	go.opentelemetry.io/otel/metric v1.35.0 // indirect
-	go.opentelemetry.io/otel/trace v1.35.0 // indirect
-	golang.org/x/net v0.39.0 // indirect
-	golang.org/x/sys v0.32.0 // indirect
+	go.opentelemetry.io/otel v1.37.0 // indirect
+	go.opentelemetry.io/otel/metric v1.37.0 // indirect
+	go.opentelemetry.io/otel/trace v1.37.0 // indirect
+	golang.org/x/net v0.42.0 // indirect
+	golang.org/x/sys v0.34.0 // indirect
 )

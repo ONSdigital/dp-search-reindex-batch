@@ -369,7 +369,6 @@ func joinDocChannels(ctx context.Context, tracker *Tracker, inChans ...chan Docu
 	return outChan
 }
 
-// TODO: Update dp-search-data-extractor for migrationLink
 func transformZebedeeDoc(ctx context.Context, tracker *Tracker, errChan chan error, extractedChan chan Document, transformedChan chan<- Document, topicsMap map[string]Topic) {
 	for extractedDoc := range extractedChan {
 		var zebedeeData extractorModels.ZebedeeData
