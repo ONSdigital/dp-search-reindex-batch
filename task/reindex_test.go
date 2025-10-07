@@ -818,3 +818,78 @@ func TestAddTopicWithParents(t *testing.T) {
 		})
 	})
 }
+
+func TestMigratedContentFiltering(t *testing.T) {
+	Convey("Given a extractedChan channel and a transformedChan channel", t, func() {
+		errChan := make(chan error, 1)
+		extractedChan := make(chan Document, 1)
+		transformedChan := make(chan Document, 1)
+		tracker := &Tracker{}
+
+		Convey("When a non-editorial document with a migration link is sent to the extractedChan and consumed by transformZebedeeDoc", func() {
+			extractedChan <- Document{
+				ID:  "doc1",
+				URI: "economy/migrated-content",
+				Body: []byte(`{
+					"type": "static_landing_page",
+					"description": {
+						"title": "A static landing page title",
+						"migrationLink": "some-new-location"
+					}
+				}`),
+			}
+			close(extractedChan)
+
+			transformZebedeeDoc(ctx, tracker, errChan, extractedChan, transformedChan, nil)
+
+			Convey("Then the document is filtered out and not sent to the transformed channel", func() {
+				So(transformedChan, ShouldBeEmpty)
+			})
+		})
+
+		Convey("When a non-editorial document without a migration link is sent to the extractedChan and consumed by transformZebedeeDoc", func() {
+			extractedChan <- Document{
+				ID:  "doc2",
+				URI: "economy/non-migrated-content",
+				Body: []byte(`{
+				"type": "static_landing_page",
+				"description": {
+					"title": "A static landing page title"
+				}
+			}`),
+			}
+			close(extractedChan)
+
+			transformZebedeeDoc(ctx, tracker, errChan, extractedChan, transformedChan, nil)
+
+			Convey("Then the document is sent to the transformed channel", func() {
+				So(transformedChan, ShouldHaveLength, 1)
+				transformed := <-transformedChan
+				So(transformed.URI, ShouldEqual, "economy/non-migrated-content")
+			})
+		})
+
+		Convey("When an editorial document with a migration link is sent to the extractedChan and consumed by transformZebedeeDoc", func() {
+			extractedChan <- Document{
+				ID:  "doc3",
+				URI: "bulletin/migrated-editorial-content",
+				Body: []byte(`{
+				"type": "bulletin",
+				"description": {
+					"title": "A bulletin title",
+					"migrationLink": "some-new-location"
+				}
+			}`),
+			}
+			close(extractedChan)
+
+			transformZebedeeDoc(ctx, tracker, errChan, extractedChan, transformedChan, nil)
+
+			Convey("Then the document is sent to the transformed channel", func() {
+				So(transformedChan, ShouldHaveLength, 1)
+				transformed := <-transformedChan
+				So(transformed.URI, ShouldEqual, "bulletin/migrated-editorial-content")
+			})
+		})
+	})
+}
