@@ -113,6 +113,13 @@ func reindex(ctx context.Context, cfg *config.Config) error {
 
 	docChannels := make([]chan Document, 0)
 
+	// DEVELOPER WARNING, the following code is concurrent not sequential, each function is running its functionality
+	// in its own go routine which sends results down a channel some time in the future as and when it has retrieved or
+	// processed them. The functions themselves return immediately as soon as the routines are initiated and return not
+	// the final results but rather a channel which will at some point have results flowing through them.
+	// Do not develop code here expecting the functionality to happen in sequence, or you will have unexpected results
+	// Note the code therefore pretty much immediately runs to the "End of main concurrent section" comment below.
+
 	if cfg.EnableDatasetAPIReindex {
 		datasetChan, _ := extractDatasets(ctx, t, errChan, datasetClient, cfg.ServiceAuthToken, cfg.PaginationLimit)
 		editionChan, _ := retrieveDatasetEditions(ctx, t, datasetClient, datasetChan, cfg.ServiceAuthToken, cfg.MaxDatasetExtractions)
@@ -131,15 +138,10 @@ func reindex(ctx context.Context, cfg *config.Config) error {
 
 	if cfg.EnableOtherServicesReindex {
 		for i := 0; i < numUpstreamServices; i++ {
-			// Firstly retrieve the topics map
+			// TODO remove the topics map as it is not needed for upstream
 			topicsMapChan := retrieveTopicsMap(ctx, errChan, cfg.TopicTaggingEnabled, cfg.ServiceAuthToken, topicClient)
-			// Next create a channel of Resource items
-			resourceChan := getResourceItems(ctx, errChan, upstreamServiceClients[i], cfg.MaxDocumentExtractions)
-			log.Info(ctx, "getting resource items", log.Data{"resourceChan": resourceChan})
-			// Next transform those Resource items into Document objects
+			resourceChan := resourceGetter(ctx, t, errChan, upstreamServiceClients[i], cfg.MaxDocumentExtractions)
 			transformedResChan := resourceTransformer(ctx, t, errChan, resourceChan, cfg.MaxDocumentTransforms, topicsMapChan)
-			log.Info(ctx, "getting documents", log.Data{"docs in transformedResChan": transformedResChan})
-			// Then append those Document items to the other Documents in the docChannels
 			docChannels = append(docChannels, transformedResChan)
 		}
 	}
@@ -151,6 +153,8 @@ func reindex(ctx context.Context, cfg *config.Config) error {
 
 	ticker := time.NewTicker(cfg.TrackerInterval)
 	defer ticker.Stop()
+
+	// End of main concurrent section
 
 	for done := false; !done; {
 		select {
@@ -267,6 +271,7 @@ func swapAliases(ctx context.Context, dpEsIndexClient dpEsClient.Client, indexNa
 		log.Error(ctx, "error swapping aliases: %v", updateAliasErr)
 		return updateAliasErr
 	}
+	log.Info(ctx, "swapped aliases", log.Data{"index_name": indexName})
 	return nil
 }
 

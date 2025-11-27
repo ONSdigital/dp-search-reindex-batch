@@ -6,19 +6,20 @@ import (
 	"strconv"
 	"sync"
 
-	upstreamModels "github.com/ONSdigital/dis-search-upstream-stub/models"
-	upstreamStubSDK "github.com/ONSdigital/dis-search-upstream-stub/sdk"
+	"github.com/ONSdigital/dis-search-upstream-stub/models"
+	"github.com/ONSdigital/dis-search-upstream-stub/sdk"
 	"github.com/ONSdigital/dp-search-data-importer/transform"
 	"github.com/ONSdigital/log.go/v2/log"
 )
 
-// getResourceItems gets the specified maximum number of Resources from the upstream service and then puts each Resource item into a channel, which it returns.
-func getResourceItems(ctx context.Context, errChan chan error, upstreamStubClient *upstreamStubSDK.Client, maxExtractions int) (resourcesChan chan upstreamModels.Resource) {
-	resourcesChan = make(chan upstreamModels.Resource, defaultChannelBuffer)
+// resourceGetter starts a go routine which gets the specified maximum number of Resources from the upstream service and
+// then puts each Resource item into a channel, which it returns.
+func resourceGetter(ctx context.Context, tracker *Tracker, errChan chan error, upstreamStubClient *sdk.Client, maxExtractions int) (resourcesChan chan models.Resource) {
+	resourcesChan = make(chan models.Resource, defaultChannelBuffer)
 	go func() {
 		defer close(resourcesChan)
 
-		var opts upstreamStubSDK.Options
+		var opts sdk.Options
 		opts.Limit(strconv.Itoa(maxExtractions))
 		resources, err := upstreamStubClient.GetResources(ctx, opts)
 		if err != nil {
@@ -30,16 +31,19 @@ func getResourceItems(ctx context.Context, errChan chan error, upstreamStubClien
 		resourceList := resources.Items
 		numItems := len(resourceList)
 
+		log.Info(ctx, "got page of resources from upstream service", log.Data{"num_items": numItems})
+
 		for i := 0; i < numItems; i++ {
 			resourcesChan <- resourceList[i]
+			tracker.Inc("upstream-resources")
 		}
 
-		log.Info(ctx, "finished getting resources")
+		log.Info(ctx, "finished getting resources", log.Data{"num_items": numItems})
 	}()
 	return resourcesChan
 }
 
-func resourceTransformer(ctx context.Context, tracker *Tracker, errChan chan error, resourceChan chan upstreamModels.Resource, maxTransforms int, topicsMapChan chan map[string]Topic) chan Document {
+func resourceTransformer(ctx context.Context, tracker *Tracker, errChan chan error, resourceChan chan models.Resource, maxTransforms int, topicsMapChan chan map[string]Topic) chan Document {
 	var topicsMap map[string]Topic
 	for tm := range topicsMapChan {
 		topicsMap = tm
@@ -61,11 +65,11 @@ func resourceTransformer(ctx context.Context, tracker *Tracker, errChan chan err
 	return transformedResChan
 }
 
-func transformResourceItem(ctx context.Context, tracker *Tracker, errChan chan error, resourceChan chan upstreamModels.Resource, transformedChan chan<- Document, topicsMap map[string]Topic) {
+func transformResourceItem(ctx context.Context, tracker *Tracker, errChan chan error, resourceChan chan models.Resource, transformedChan chan<- Document, topicsMap map[string]Topic) {
 	for resourceItem := range resourceChan {
 		if resourceItem.Title == "" {
 			// Don't want to index things without title
-			tracker.Inc("untransformed-res-notitle")
+			tracker.Inc("upstream-resources-untransformed-res-notitle")
 			continue // move on to the next resource item
 		}
 		// Map the data from the Resource into a new exporterEventData object of type dp-search-data-extractor/models.SearchDataImport
@@ -75,11 +79,11 @@ func transformResourceItem(ctx context.Context, tracker *Tracker, errChan chan e
 		if topicsMap != nil {
 			importerEventData = tagImportDataTopics(topicsMap, importerEventData)
 			if len(importerEventData.Topics) == 0 {
-				tracker.Inc("docs-topic-untagged")
+				tracker.Inc("upstream-resources-untagged")
 				log.Warn(ctx, "untagged topic document",
 					log.Data{"URI": importerEventData.URI})
 			} else {
-				tracker.Inc("docs-topic-tagged")
+				tracker.Inc("upstream-resources-topic-tagged")
 			}
 		}
 		esModel := transform.NewTransformer().TransformEventModelToEsModel(&importerEventData)
@@ -96,6 +100,6 @@ func transformResourceItem(ctx context.Context, tracker *Tracker, errChan chan e
 			Body: body,
 		}
 		transformedChan <- transformedDoc
-		tracker.Inc("doc-transformed")
+		tracker.Inc("upstream-resources-transformed")
 	}
 }

@@ -11,7 +11,7 @@ import (
 	extractorModels "github.com/ONSdigital/dp-search-data-extractor/models"
 	importerModels "github.com/ONSdigital/dp-search-data-importer/models"
 	"github.com/ONSdigital/dp-search-data-importer/transform"
-	topicCli "github.com/ONSdigital/dp-topic-api/sdk"
+	"github.com/ONSdigital/dp-topic-api/sdk"
 	"github.com/ONSdigital/log.go/v2/log"
 )
 
@@ -32,7 +32,7 @@ func uriProducer(ctx context.Context, tracker *Tracker, errorChan chan error, z 
 				})
 			} else {
 				uriChan <- item.URI
-				tracker.Inc("uri")
+				tracker.Inc("zebedee-uris")
 			}
 		}
 		log.Info(ctx, "finished listing uris")
@@ -164,7 +164,7 @@ func transformZebedeeDoc(ctx context.Context, tracker *Tracker, errChan chan err
 	}
 }
 
-func retrieveTopicsMap(ctx context.Context, errorChan chan error, enabled bool, serviceAuthToken string, topicClient topicCli.Clienter) chan map[string]Topic {
+func retrieveTopicsMap(ctx context.Context, errorChan chan error, enabled bool, serviceAuthToken string, topicClient sdk.Clienter) chan map[string]Topic {
 	topicsMapChan := make(chan map[string]Topic, 1)
 
 	go func() {

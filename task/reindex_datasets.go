@@ -8,7 +8,7 @@ import (
 
 	"github.com/ONSdigital/dp-api-clients-go/v2/dataset"
 	"github.com/ONSdigital/dp-search-api/clients"
-	extractorModels "github.com/ONSdigital/dp-search-data-extractor/models"
+	"github.com/ONSdigital/dp-search-data-extractor/models"
 	"github.com/ONSdigital/dp-search-data-importer/transform"
 	"github.com/ONSdigital/log.go/v2/log"
 )
@@ -53,7 +53,7 @@ func extractDatasets(ctx context.Context, tracker *Tracker, errChan chan error, 
 			}
 			for i := 0; i < len(list.Items); i++ {
 				datasetChan <- list.Items[i]
-				tracker.Inc("dataset")
+				tracker.Inc("dataset-extracted")
 			}
 			offset += paginationLimit
 
@@ -160,7 +160,7 @@ func metaDataTransformer(ctx context.Context, tracker *Tracker, errChan chan err
 
 func transformMetadataDoc(ctx context.Context, tracker *Tracker, errChan chan error, metadataChan chan *dataset.Metadata, transformedChan chan<- Document) {
 	for m := range metadataChan {
-		uri := extractorModels.GetURI(m)
+		uri := models.GetURI(m)
 
 		parsedURI, err := url.Parse(uri)
 		if err != nil {
@@ -174,7 +174,7 @@ func transformMetadataDoc(ctx context.Context, tracker *Tracker, errChan chan er
 			edition = m.DatasetDetails.Links.Edition.ID
 		}
 
-		searchDataImport := &extractorModels.SearchDataImport{
+		searchDataImport := &models.SearchDataImport{
 			UID:       m.DatasetDetails.ID,
 			URI:       parsedURI.Path,
 			Edition:   edition,

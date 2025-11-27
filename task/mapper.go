@@ -1,10 +1,6 @@
 package task
 
 import (
-	"context"
-
-	"github.com/ONSdigital/log.go/v2/log"
-
 	upstreamModels "github.com/ONSdigital/dis-search-upstream-stub/models"
 	extractorModels "github.com/ONSdigital/dp-search-data-extractor/models"
 )
@@ -34,10 +30,7 @@ func MapResourceToSearchDataImport(resourceItem upstreamModels.Resource) extract
 		searchData.Edition = resourceItem.Edition
 	}
 	if resourceItem.ContentType == ReleaseDataType {
-		logData := log.Data{
-			"resourceRCData": resourceItem,
-		}
-		log.Info(context.Background(), "resource release calender data", logData)
+
 		for _, data := range resourceItem.DateChanges {
 			searchData.DateChanges = append(searchData.DateChanges, extractorModels.ReleaseDateDetails{
 				ChangeNotice: data.ChangeNotice,
