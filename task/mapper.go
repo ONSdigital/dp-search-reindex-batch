@@ -30,7 +30,6 @@ func MapResourceToSearchDataImport(resourceItem upstreamModels.Resource) extract
 		searchData.Edition = resourceItem.Edition
 	}
 	if resourceItem.ContentType == ReleaseDataType {
-
 		for _, data := range resourceItem.DateChanges {
 			searchData.DateChanges = append(searchData.DateChanges, extractorModels.ReleaseDateDetails{
 				ChangeNotice: data.ChangeNotice,
