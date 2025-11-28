@@ -69,7 +69,7 @@ func transformResourceItem(ctx context.Context, tracker *Tracker, errChan chan e
 	for resourceItem := range resourceChan {
 		if resourceItem.Title == "" {
 			// Don't want to index things without title
-			tracker.Inc("upstream-resources-untransformed-res-notitle")
+			tracker.Inc("upstream-resources-untransformed-res-no-title")
 			continue // move on to the next resource item
 		}
 		// Map the data from the Resource into a new exporterEventData object of type dp-search-data-extractor/models.SearchDataImport

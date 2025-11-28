@@ -121,7 +121,7 @@ func transformZebedeeDoc(ctx context.Context, tracker *Tracker, errChan chan err
 		}
 		if zebedeeData.Description.Title == "" {
 			// Don't want to index things without title
-			tracker.Inc("untransformed-notitle")
+			tracker.Inc("untransformed-no-title")
 			continue // move on to the next extracted doc
 		}
 
