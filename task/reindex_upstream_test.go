@@ -12,7 +12,7 @@ import (
 
 func TestTransformResourceItem(t *testing.T) {
 	convey.Convey("Given a resource channel and a transformed document channel and a topics map", t, func() {
-		resourceChan := make(chan models.Resource, 1)
+		resourceChan := make(chan models.SearchContentUpdatedResource, 1)
 		transformedResChan := make(chan Document, 1)
 		tracker := &Tracker{}
 		errChan := make(chan error, 1)
@@ -24,7 +24,7 @@ func TestTransformResourceItem(t *testing.T) {
 			ParentSlug: ""}
 
 		convey.Convey("When a release resource item is sent to the channel and consumed by transformResourceItem", func() {
-			sent := models.Resource{
+			sent := models.SearchContentUpdatedResource{
 				URI:             "/a/uri",
 				URIOld:          "/an/old/uri",
 				ContentType:     "release",
@@ -102,7 +102,7 @@ func TestTransformResourceItem(t *testing.T) {
 			})
 		})
 		convey.Convey("When a non-release resource item is sent to the channel and consumed by transformResourceItem", func() {
-			sent := models.Resource{
+			sent := models.SearchContentUpdatedResource{
 				URI:             "/a/uri",
 				URIOld:          "/an/old/uri",
 				ContentType:     "standard",

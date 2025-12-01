@@ -10,7 +10,7 @@ const (
 )
 
 // MapResourceToSearchDataImport Performs default mapping of a Resource item to a SearchDataImport struct.
-func MapResourceToSearchDataImport(resourceItem upstreamModels.Resource) extractorModels.SearchDataImport {
+func MapResourceToSearchDataImport(resourceItem upstreamModels.SearchContentUpdatedResource) extractorModels.SearchDataImport {
 	searchData := extractorModels.SearchDataImport{
 		UID:             resourceItem.URI,
 		URI:             resourceItem.URI,

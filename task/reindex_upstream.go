@@ -14,8 +14,8 @@ import (
 
 // resourceGetter starts a go routine which gets the specified maximum number of Resources from the upstream service and
 // then puts each Resource item into a channel, which it returns.
-func resourceGetter(ctx context.Context, tracker *Tracker, errChan chan error, upstreamStubClient *sdk.Client, maxExtractions int) (resourcesChan chan models.Resource) {
-	resourcesChan = make(chan models.Resource, defaultChannelBuffer)
+func resourceGetter(ctx context.Context, tracker *Tracker, errChan chan error, upstreamStubClient *sdk.Client, maxExtractions int) (resourcesChan chan models.SearchContentUpdatedResource) {
+	resourcesChan = make(chan models.SearchContentUpdatedResource, defaultChannelBuffer)
 	go func() {
 		defer close(resourcesChan)
 
@@ -34,8 +34,14 @@ func resourceGetter(ctx context.Context, tracker *Tracker, errChan chan error, u
 		log.Info(ctx, "got page of resources from upstream service", log.Data{"num_items": numItems})
 
 		for i := 0; i < numItems; i++ {
-			resourcesChan <- resourceList[i]
-			tracker.Inc("upstream-resources")
+			scur, ok := resourceList[i].(models.SearchContentUpdatedResource)
+			if ok {
+				resourcesChan <- scur
+				tracker.Inc("upstream-resources")
+			} else {
+				log.Info(ctx, "unexpected resource type returned from upstream", log.Data{"type": resourceList[i].GetResourceType()})
+				tracker.Inc("upstream-resources-unknown-type")
+			}
 		}
 
 		log.Info(ctx, "finished getting resources", log.Data{"num_items": numItems})
@@ -43,7 +49,7 @@ func resourceGetter(ctx context.Context, tracker *Tracker, errChan chan error, u
 	return resourcesChan
 }
 
-func resourceTransformer(ctx context.Context, tracker *Tracker, errChan chan error, resourceChan chan models.Resource, maxTransforms int, topicsMapChan chan map[string]Topic) chan Document {
+func resourceTransformer(ctx context.Context, tracker *Tracker, errChan chan error, resourceChan chan models.SearchContentUpdatedResource, maxTransforms int, topicsMapChan chan map[string]Topic) chan Document {
 	var topicsMap map[string]Topic
 	for tm := range topicsMapChan {
 		topicsMap = tm
@@ -65,7 +71,7 @@ func resourceTransformer(ctx context.Context, tracker *Tracker, errChan chan err
 	return transformedResChan
 }
 
-func transformResourceItem(ctx context.Context, tracker *Tracker, errChan chan error, resourceChan chan models.Resource, transformedChan chan<- Document, topicsMap map[string]Topic) {
+func transformResourceItem(ctx context.Context, tracker *Tracker, errChan chan error, resourceChan chan models.SearchContentUpdatedResource, transformedChan chan<- Document, topicsMap map[string]Topic) {
 	for resourceItem := range resourceChan {
 		if resourceItem.Title == "" {
 			// Don't want to index things without title
