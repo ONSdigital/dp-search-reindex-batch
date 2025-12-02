@@ -14,39 +14,69 @@ import (
 
 // resourceGetter starts a go routine which gets the specified maximum number of Resources from the upstream service and
 // then puts each Resource item into a channel, which it returns.
-func resourceGetter(ctx context.Context, tracker *Tracker, errChan chan error, upstreamStubClient *sdk.Client, maxExtractions int) (resourcesChan chan models.SearchContentUpdatedResource) {
+func resourceGetter(ctx context.Context, tracker *Tracker, errChan chan error, upstreamStubClient *sdk.Client, pageLimit, maxExtractions int) (resourcesChan chan models.SearchContentUpdatedResource) {
 	resourcesChan = make(chan models.SearchContentUpdatedResource, defaultChannelBuffer)
 	go func() {
 		defer close(resourcesChan)
-
-		var opts sdk.Options
-		opts.Limit(strconv.Itoa(maxExtractions))
-		resources, err := upstreamStubClient.GetResources(ctx, opts)
-		if err != nil {
-			errChan <- err
-			log.Error(ctx, "failed to get resources from upstream service", err, log.Data{"options": opts})
-			return
-		}
-
-		resourceList := resources.Items
-		numItems := len(resourceList)
-
-		log.Info(ctx, "got page of resources from upstream service", log.Data{"num_items": numItems})
-
-		for i := 0; i < numItems; i++ {
-			scur, ok := resourceList[i].(models.SearchContentUpdatedResource)
-			if ok {
-				resourcesChan <- scur
-				tracker.Inc("upstream-resources")
-			} else {
-				log.Info(ctx, "unexpected resource type returned from upstream", log.Data{"type": resourceList[i].GetResourceType()})
-				tracker.Inc("upstream-resources-unknown-type")
+		offsetChan := make(chan int, 1)
+		totalCountChan := make(chan int)
+		defer close(totalCountChan)
+		go func() {
+			defer close(offsetChan)
+			offsetChan <- 0                // trigger first page fetch
+			totalCount := <-totalCountChan // wait for the total_count to be returned from first fetch
+			log.Info(ctx, "total upstream count", log.Data{"total_count": totalCount})
+			for n := pageLimit; n < totalCount; n += pageLimit {
+				offsetChan <- n // trigger subsequent pages
 			}
-		}
+		}()
 
-		log.Info(ctx, "finished getting resources", log.Data{"num_items": numItems})
+		var wg sync.WaitGroup
+		for i := 0; i < maxExtractions; i++ {
+			wg.Add(1)
+			go func(wg *sync.WaitGroup) {
+				defer wg.Done()
+				for offset := range offsetChan {
+					resources, err := getResourcePage(ctx, upstreamStubClient, pageLimit, offset)
+					if err != nil {
+						errChan <- err
+						log.Error(ctx, "failed to get page of resources from upstream service", err, log.Data{"limit": pageLimit, "offset": offset})
+						continue
+					}
+					// if first page, return the total count so subsequent pages can be triggered
+					if offset == 0 {
+						totalCountChan <- resources.TotalCount
+					}
+					processResourcesPage(ctx, tracker, resourcesChan, resources)
+				}
+			}(&wg)
+		}
+		wg.Wait()
+		log.Info(ctx, "finished getting resources from upstream")
 	}()
 	return resourcesChan
+}
+
+func getResourcePage(ctx context.Context, upstreamStubClient *sdk.Client, limit, offset int) (*models.Resources, error) {
+	var opts sdk.Options
+	opts.Limit(strconv.Itoa(limit))
+	opts.Offset(strconv.Itoa(offset))
+	log.Info(ctx, "getting page of resources from upstream", log.Data{"limit": limit, "offset": offset})
+	res, err := upstreamStubClient.GetResources(ctx, opts)
+	return res, err
+}
+
+func processResourcesPage(ctx context.Context, tracker *Tracker, resourcesChan chan models.SearchContentUpdatedResource, resources *models.Resources) {
+	for _, res := range resources.Items {
+		scur, ok := res.(models.SearchContentUpdatedResource)
+		if ok {
+			resourcesChan <- scur
+			tracker.Inc("upstream-resources")
+		} else {
+			log.Info(ctx, "unexpected resource type returned from upstream", log.Data{"type": res.GetResourceType()})
+			tracker.Inc("upstream-resources-unknown-type")
+		}
+	}
 }
 
 func resourceTransformer(ctx context.Context, tracker *Tracker, errChan chan error, resourceChan chan models.SearchContentUpdatedResource, maxTransforms int, topicsMapChan chan map[string]Topic) chan Document {

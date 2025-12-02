@@ -121,7 +121,7 @@ func reindex(ctx context.Context, cfg *config.Config) error {
 	// Note the code therefore pretty much immediately runs to the "End of main concurrent section" comment below.
 
 	if cfg.EnableDatasetAPIReindex {
-		datasetChan, _ := extractDatasets(ctx, t, errChan, datasetClient, cfg.ServiceAuthToken, cfg.PaginationLimit)
+		datasetChan, _ := extractDatasets(ctx, t, errChan, datasetClient, cfg.ServiceAuthToken, cfg.DatasetPaginationLimit)
 		editionChan, _ := retrieveDatasetEditions(ctx, t, datasetClient, datasetChan, cfg.ServiceAuthToken, cfg.MaxDatasetExtractions)
 		metadataChan, _ := retrieveLatestMetadata(ctx, t, datasetClient, editionChan, cfg.ServiceAuthToken, cfg.MaxDatasetExtractions)
 		transformedMetaChan := metaDataTransformer(ctx, t, errChan, metadataChan, cfg.MaxDatasetTransforms)
@@ -140,8 +140,8 @@ func reindex(ctx context.Context, cfg *config.Config) error {
 		for i := 0; i < numUpstreamServices; i++ {
 			// TODO remove the topics map as it is not needed for upstream
 			topicsMapChan := retrieveTopicsMap(ctx, errChan, cfg.TopicTaggingEnabled, cfg.ServiceAuthToken, topicClient)
-			resourceChan := resourceGetter(ctx, t, errChan, upstreamServiceClients[i], cfg.MaxDocumentExtractions)
-			transformedResChan := resourceTransformer(ctx, t, errChan, resourceChan, cfg.MaxDocumentTransforms, topicsMapChan)
+			resourceChan := resourceGetter(ctx, t, errChan, upstreamServiceClients[i], cfg.UpstreamPaginationLimit, cfg.MaxUpstreamExtractions)
+			transformedResChan := resourceTransformer(ctx, t, errChan, resourceChan, cfg.MaxUpstreamTransforms, topicsMapChan)
 			docChannels = append(docChannels, transformedResChan)
 		}
 	}

@@ -24,7 +24,7 @@ func extractDatasets(ctx context.Context, tracker *Tracker, errChan chan error, 
 	datasetChan := make(chan dataset.Dataset, defaultChannelBuffer)
 	var wg sync.WaitGroup
 
-	// extractAll extracts all datasets from datasetAPI in batches of up to 'PaginationLimit' size
+	// extractAll extracts all datasets from datasetAPI in batches of up to 'DatasetPaginationLimit' size
 	extractAll := func() {
 		defer func() {
 			close(datasetChan)

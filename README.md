@@ -25,28 +25,31 @@ We use v2 of golangci-lint, which you will [need to install](https://golangci-li
 
 ### Configuration
 
-| Environment variable          | Default                                                        | Description                                                                |
-|-------------------------------|----------------------------------------------------------------|----------------------------------------------------------------------------|
-| AWS_REGION                    | "eu-west-2"                                                    | AWS region                                                                 |
-| AWS_SEC_SKIP_VERIFY           | false                                                          | Whether to skip TLS verification for AWS requests                          |
-| DATASET_API_URL               | "<http://localhost:22000>"                                     | URL of the Dataset API                                                     |
-| DATASET_PAGINATION_LIMIT      | 500                                                            | Number of datasets to fetch per page of requests to Dataset API            |
-| ELASTIC_SEARCH_URL            | "<http://localhost:11200>"                                     | URL of elastic search server (or AWS Opensearch)                           |
-| ENABLE_DATASET_API_REINDEX    | false                                                          | Whether to get documents from the Dataset API for reindexing or not        |
-| ENABLE_OTHER_SERVICES_REINDEX | false                                                          | Whether to get documents from other upstream services or not               |
-| ENABLE_TOPIC_TAGGING          | false                                                          | Whether to enable topic auto-tagging                                       |
-| ENABLE_ZEBEDEE_REINDEX        | false                                                          | Whether to get documents from Zebedee for reindexing or not                |
-| MAX_DATASET_EXTRACTIONS       | 20                                                             | Max number of concurrent Dataset Extractions (ie. Dataset API connections) |
-| MAX_DATASET_TRANSFORMS        | 10                                                             | Max number of concurrent Dataset Transformation workers                    |
-| MAX_DOCUMENT_EXTRACTIONS      | 100                                                            | Max number of concurrent Document Extractions (ie. Zebedee connections)    |
-| MAX_DOCUMENT_TRANSFORMS       | 20                                                             | Max number of concurrent Document Transformation workers                   |
-| OTHER_UPSTREAM_SERVICES       | [["http://localhost:29600", "/resources"]]                     | List of upstream services. Each consisting a host and an endpoint. (See [other_upstream_services](#other_upstream_services))     |
-| SERVICE_AUTH_TOKEN            | ""                                                             | Zebedee Service Auth Token for API requests                                |
-| SIGN_ELASTICSEARCH_REQUESTS   | false                                                          | Whether to sign elasticsearch requests (true for AWS)                      |
-| TOPIC_API_URL                 | "<http://localhost:25300>"                                     | URL of the Topic API                                                       |
-| TRACKER_INTERVAL              | 5s                                                             | Interval for progress tracker summary logging                              |
-| ZEBEDEE_TIMEOUT               | 2m                                                             | Timeout for Zebedee endpoints - published index can take > 2 minutes       |
-| ZEBEDEE_URL                   | "<http://localhost:8082>"                                      | URL of publishing zebedee                                                  |
+| Environment variable          | Default                                    | Description                                                                                                                  |
+|-------------------------------|--------------------------------------------|------------------------------------------------------------------------------------------------------------------------------|
+| AWS_REGION                    | "eu-west-2"                                | AWS region                                                                                                                   |
+| AWS_SEC_SKIP_VERIFY           | false                                      | Whether to skip TLS verification for AWS requests                                                                            |
+| DATASET_API_URL               | "<http://localhost:22000>"                 | URL of the Dataset API                                                                                                       |
+| DATASET_PAGINATION_LIMIT      | 500                                        | Number of datasets to fetch per page of requests to Dataset API                                                              |
+| ELASTIC_SEARCH_URL            | "<http://localhost:11200>"                 | URL of elastic search server (or AWS Opensearch)                                                                             |
+| ENABLE_DATASET_API_REINDEX    | false                                      | Whether to get documents from the Dataset API for reindexing or not                                                          |
+| ENABLE_OTHER_SERVICES_REINDEX | false                                      | Whether to get documents from other upstream services or not                                                                 |
+| ENABLE_TOPIC_TAGGING          | false                                      | Whether to enable topic auto-tagging                                                                                         |
+| ENABLE_ZEBEDEE_REINDEX        | false                                      | Whether to get documents from Zebedee for reindexing or not                                                                  |
+| MAX_DATASET_EXTRACTIONS       | 20                                         | Max number of concurrent Dataset Extractions (ie. Dataset API connections)                                                   |
+| MAX_DATASET_TRANSFORMS        | 10                                         | Max number of concurrent Dataset Transformation workers                                                                      |
+| MAX_DOCUMENT_EXTRACTIONS      | 100                                        | Max number of concurrent Document Extractions (ie. Zebedee connections)                                                      |
+| MAX_DOCUMENT_TRANSFORMS       | 20                                         | Max number of concurrent Document Transformation workers                                                                     |
+| MAX_UPSTREAM_EXTRACTIONS      | 10                                         | Max number of concurrent Upstream Extractions (ie. Wagtail etc. connections)                                                 |
+| MAX_UPSTREAM_TRANSFORMS       | 10                                         | Max number of concurrent Upstream Transformation workers                                                                     |
+| OTHER_UPSTREAM_SERVICES       | [["http://localhost:29600", "/resources"]] | List of upstream services. Each consisting a host and an endpoint. (See [other_upstream_services](#other_upstream_services)) |
+| SERVICE_AUTH_TOKEN            | ""                                         | Zebedee Service Auth Token for API requests                                                                                  |
+| SIGN_ELASTICSEARCH_REQUESTS   | false                                      | Whether to sign elasticsearch requests (true for AWS)                                                                        |
+| TOPIC_API_URL                 | "<http://localhost:25300>"                 | URL of the Topic API                                                                                                         |
+| TRACKER_INTERVAL              | 5s                                         | Interval for progress tracker summary logging                                                                                |
+| UPSTREAM_PAGINATION_LIMIT     | 100                                        | Number of resources to request in each page of requests to other upstream services                                           |
+| ZEBEDEE_TIMEOUT               | 2m                                         | Timeout for Zebedee endpoints - published index can take > 2 minutes                                                         |
+| ZEBEDEE_URL                   | "<http://localhost:8082>"                  | URL of publishing zebedee                                                                                                    |
 
 #### OTHER_UPSTREAM_SERVICES
 
