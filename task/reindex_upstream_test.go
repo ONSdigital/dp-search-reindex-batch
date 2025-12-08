@@ -17,12 +17,6 @@ func TestTransformResourceItem(t *testing.T) {
 		tracker := &Tracker{}
 		errChan := make(chan error, 1)
 
-		topicsMap := make(map[string]Topic)
-		topicsMap["a"] = Topic{ID: "id",
-			Slug:       "economy",
-			ParentID:   "",
-			ParentSlug: ""}
-
 		convey.Convey("When a release resource item is sent to the channel and consumed by transformResourceItem", func() {
 			sent := models.SearchContentUpdatedResource{
 				URI:             "/a/uri",
@@ -35,6 +29,7 @@ func TestTransformResourceItem(t *testing.T) {
 				ReleaseDate:     "2024-11-21:20:14Z",
 				Summary:         "a summary",
 				Title:           "a title",
+				Topics:          []string{"topic1", "topic2"},
 				Language:        "string",
 				Survey:          "string",
 				CanonicalTopic:  "string",
@@ -60,7 +55,7 @@ func TestTransformResourceItem(t *testing.T) {
 				ReleaseDate:     "2024-11-21:20:14Z",
 				Summary:         "a summary",
 				Title:           "a title",
-				Topics:          []string{},
+				Topics:          []string{"topic1", "topic2"},
 				Language:        "string",
 				Survey:          "string",
 				CanonicalTopic:  "string",
@@ -84,7 +79,7 @@ func TestTransformResourceItem(t *testing.T) {
 			wg := &sync.WaitGroup{}
 			wg.Add(1)
 			go func(waitGroup *sync.WaitGroup) {
-				transformResourceItem(ctx, tracker, errChan, resourceChan, transformedResChan, topicsMap)
+				transformResourceItem(ctx, tracker, errChan, resourceChan, transformedResChan)
 				wg.Done()
 			}(wg)
 
@@ -113,6 +108,7 @@ func TestTransformResourceItem(t *testing.T) {
 				ReleaseDate:     "2024-11-21:20:14Z",
 				Summary:         "a summary",
 				Title:           "a title",
+				Topics:          []string{"topic1", "topic2"},
 				Language:        "string",
 				Survey:          "string",
 				CanonicalTopic:  "string",
@@ -128,7 +124,7 @@ func TestTransformResourceItem(t *testing.T) {
 				ReleaseDate:     "2024-11-21:20:14Z",
 				Summary:         "a summary",
 				Title:           "a title",
-				Topics:          []string{},
+				Topics:          []string{"topic1", "topic2"},
 				Language:        "string",
 				Survey:          "string",
 				CanonicalTopic:  "string",
@@ -141,7 +137,7 @@ func TestTransformResourceItem(t *testing.T) {
 			wg := &sync.WaitGroup{}
 			wg.Add(1)
 			go func(waitGroup *sync.WaitGroup) {
-				transformResourceItem(ctx, tracker, errChan, resourceChan, transformedResChan, topicsMap)
+				transformResourceItem(ctx, tracker, errChan, resourceChan, transformedResChan)
 				wg.Done()
 			}(wg)
 

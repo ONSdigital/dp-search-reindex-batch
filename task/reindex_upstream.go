@@ -79,18 +79,14 @@ func processResourcesPage(ctx context.Context, tracker *Tracker, resourcesChan c
 	}
 }
 
-func resourceTransformer(ctx context.Context, tracker *Tracker, errChan chan error, resourceChan chan models.SearchContentUpdatedResource, maxTransforms int, topicsMapChan chan map[string]Topic) chan Document {
-	var topicsMap map[string]Topic
-	for tm := range topicsMapChan {
-		topicsMap = tm
-	}
+func resourceTransformer(ctx context.Context, tracker *Tracker, errChan chan error, resourceChan chan models.SearchContentUpdatedResource, maxTransforms int) chan Document {
 	transformedResChan := make(chan Document, defaultChannelBuffer)
 	go func() {
 		var wg sync.WaitGroup
 		for i := 0; i < maxTransforms; i++ {
 			wg.Add(1)
 			go func(wg *sync.WaitGroup) {
-				transformResourceItem(ctx, tracker, errChan, resourceChan, transformedResChan, topicsMap)
+				transformResourceItem(ctx, tracker, errChan, resourceChan, transformedResChan)
 				wg.Done()
 			}(&wg)
 		}
@@ -101,7 +97,7 @@ func resourceTransformer(ctx context.Context, tracker *Tracker, errChan chan err
 	return transformedResChan
 }
 
-func transformResourceItem(ctx context.Context, tracker *Tracker, errChan chan error, resourceChan chan models.SearchContentUpdatedResource, transformedChan chan<- Document, topicsMap map[string]Topic) {
+func transformResourceItem(ctx context.Context, tracker *Tracker, errChan chan error, resourceChan chan models.SearchContentUpdatedResource, transformedChan chan<- Document) {
 	for resourceItem := range resourceChan {
 		if resourceItem.Title == "" {
 			// Don't want to index things without title
@@ -112,16 +108,7 @@ func transformResourceItem(ctx context.Context, tracker *Tracker, errChan chan e
 		exporterEventData := MapResourceToSearchDataImport(resourceItem)
 		// Convert the exporterEventData object into one of type dp-search-data-importer/models.SearchDataImport
 		importerEventData := convertToSearchDataModel(exporterEventData)
-		if topicsMap != nil {
-			importerEventData = tagImportDataTopics(topicsMap, importerEventData)
-			if len(importerEventData.Topics) == 0 {
-				tracker.Inc("upstream-resources-untagged")
-				log.Warn(ctx, "untagged topic document",
-					log.Data{"URI": importerEventData.URI})
-			} else {
-				tracker.Inc("upstream-resources-topic-tagged")
-			}
-		}
+
 		esModel := transform.NewTransformer().TransformEventModelToEsModel(&importerEventData)
 
 		body, err := json.Marshal(esModel)

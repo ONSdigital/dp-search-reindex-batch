@@ -138,10 +138,8 @@ func reindex(ctx context.Context, cfg *config.Config) error {
 
 	if cfg.EnableOtherServicesReindex {
 		for i := 0; i < numUpstreamServices; i++ {
-			// TODO remove the topics map as it is not needed for upstream
-			topicsMapChan := retrieveTopicsMap(ctx, errChan, cfg.TopicTaggingEnabled, cfg.ServiceAuthToken, topicClient)
 			resourceChan := resourceGetter(ctx, t, errChan, upstreamServiceClients[i], cfg.UpstreamPaginationLimit, cfg.MaxUpstreamExtractions)
-			transformedResChan := resourceTransformer(ctx, t, errChan, resourceChan, cfg.MaxUpstreamTransforms, topicsMapChan)
+			transformedResChan := resourceTransformer(ctx, t, errChan, resourceChan, cfg.MaxUpstreamTransforms)
 			docChannels = append(docChannels, transformedResChan)
 		}
 	}
