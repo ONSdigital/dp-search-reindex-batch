@@ -54,8 +54,11 @@ type Config struct {
 	MaxDatasetTransforms       int              `envconfig:"MAX_DATASET_TRANSFORMS"`
 	MaxDocumentExtractions     int              `envconfig:"MAX_DOCUMENT_EXTRACTIONS"`
 	MaxDocumentTransforms      int              `envconfig:"MAX_DOCUMENT_TRANSFORMS"`
+	MaxUpstreamExtractions     int              `envconfig:"MAX_UPSTREAM_EXTRACTIONS"`
+	MaxUpstreamTransforms      int              `envconfig:"MAX_UPSTREAM_TRANSFORMS"`
 	OtherUpstreamServices      UpStreamServices `envconfig:"OTHER_UPSTREAM_SERVICES"`
-	PaginationLimit            int              `envconfig:"DATASET_PAGINATION_LIMIT"`
+	DatasetPaginationLimit     int              `envconfig:"DATASET_PAGINATION_LIMIT"`
+	UpstreamPaginationLimit    int              `envconfig:"UPSTREAM_PAGINATION_LIMIT"`
 	ServiceAuthToken           string           `envconfig:"SERVICE_AUTH_TOKEN"             json:"-"`
 	SignESRequests             bool             `envconfig:"SIGN_ELASTICSEARCH_REQUESTS"`
 	TopicAPIURL                string           `envconfig:"TOPIC_API_URL"`
@@ -86,20 +89,23 @@ func Get() (*Config, error) {
 		MaxDatasetTransforms:       10,
 		MaxDocumentExtractions:     100,
 		MaxDocumentTransforms:      20,
+		MaxUpstreamExtractions:     10,
+		MaxUpstreamTransforms:      10,
 		OtherUpstreamServices: UpStreamServices{
 			UpStreamService{
 				Host:     "http://localhost:29600",
 				Endpoint: "/resources",
 			},
 		},
-		PaginationLimit:     500,
-		ServiceAuthToken:    "",
-		SignESRequests:      false,
-		TopicAPIURL:         "http://localhost:25300",
-		TopicTaggingEnabled: false,
-		TrackerInterval:     5 * time.Second,
-		ZebedeeTimeout:      3 * time.Minute,
-		ZebedeeURL:          "http://localhost:8082",
+		DatasetPaginationLimit:  500,
+		UpstreamPaginationLimit: 100,
+		ServiceAuthToken:        "",
+		SignESRequests:          false,
+		TopicAPIURL:             "http://localhost:25300",
+		TopicTaggingEnabled:     false,
+		TrackerInterval:         5 * time.Second,
+		ZebedeeTimeout:          3 * time.Minute,
+		ZebedeeURL:              "http://localhost:8082",
 	}
 
 	return cfg, envconfig.Process("", cfg)

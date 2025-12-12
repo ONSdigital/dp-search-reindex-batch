@@ -6,12 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
 
-	upstreamModels "github.com/ONSdigital/dis-search-upstream-stub/models"
 	upstreamStubSDK "github.com/ONSdigital/dis-search-upstream-stub/sdk"
 	"github.com/ONSdigital/dp-api-clients-go/v2/dataset"
 	"github.com/ONSdigital/dp-api-clients-go/v2/zebedee"
@@ -20,11 +18,9 @@ import (
 	v710 "github.com/ONSdigital/dp-elasticsearch/v3/client/elasticsearch/v710"
 	"github.com/ONSdigital/dp-net/v3/awsauth"
 	dphttp2 "github.com/ONSdigital/dp-net/v3/http"
-	"github.com/ONSdigital/dp-search-api/clients"
 	"github.com/ONSdigital/dp-search-api/elasticsearch"
 	extractorModels "github.com/ONSdigital/dp-search-data-extractor/models"
 	importerModels "github.com/ONSdigital/dp-search-data-importer/models"
-	"github.com/ONSdigital/dp-search-data-importer/transform"
 	"github.com/ONSdigital/dp-search-reindex-batch/config"
 	topicCli "github.com/ONSdigital/dp-topic-api/sdk"
 	"github.com/ONSdigital/log.go/v2/log"
@@ -35,13 +31,6 @@ const (
 	defaultChannelBuffer = 20
 	awsESService         = "es"
 )
-
-// DatasetEditionMetadata holds the necessary information for a dataset edition, plus isBasedOn
-type DatasetEditionMetadata struct {
-	id        string
-	editionID string
-	version   string
-}
 
 type Document struct {
 	ID   string
@@ -124,8 +113,15 @@ func reindex(ctx context.Context, cfg *config.Config) error {
 
 	docChannels := make([]chan Document, 0)
 
+	// DEVELOPER WARNING, the following code is concurrent not sequential, each function is running its functionality
+	// in its own go routine which sends results down a channel some time in the future as and when it has retrieved or
+	// processed them. The functions themselves return immediately as soon as the routines are initiated and return not
+	// the final results but rather a channel which will at some point have results flowing through them.
+	// Do not develop code here expecting the functionality to happen in sequence, or you will have unexpected results
+	// Note the code therefore pretty much immediately runs to the "End of main concurrent section" comment below.
+
 	if cfg.EnableDatasetAPIReindex {
-		datasetChan, _ := extractDatasets(ctx, t, errChan, datasetClient, cfg.ServiceAuthToken, cfg.PaginationLimit)
+		datasetChan, _ := extractDatasets(ctx, t, errChan, datasetClient, cfg.ServiceAuthToken, cfg.DatasetPaginationLimit)
 		editionChan, _ := retrieveDatasetEditions(ctx, t, datasetClient, datasetChan, cfg.ServiceAuthToken, cfg.MaxDatasetExtractions)
 		metadataChan, _ := retrieveLatestMetadata(ctx, t, datasetClient, editionChan, cfg.ServiceAuthToken, cfg.MaxDatasetExtractions)
 		transformedMetaChan := metaDataTransformer(ctx, t, errChan, metadataChan, cfg.MaxDatasetTransforms)
@@ -142,15 +138,8 @@ func reindex(ctx context.Context, cfg *config.Config) error {
 
 	if cfg.EnableOtherServicesReindex {
 		for i := 0; i < numUpstreamServices; i++ {
-			// Firstly retrieve the topics map
-			topicsMapChan := retrieveTopicsMap(ctx, errChan, cfg.TopicTaggingEnabled, cfg.ServiceAuthToken, topicClient)
-			// Next create a channel of Resource items
-			resourceChan := getResourceItems(ctx, errChan, upstreamServiceClients[i], cfg.MaxDocumentExtractions)
-			log.Info(ctx, "getting resource items", log.Data{"resourceChan": resourceChan})
-			// Next transform those Resource items into Document objects
-			transformedResChan := resourceTransformer(ctx, t, errChan, resourceChan, cfg.MaxDocumentTransforms, topicsMapChan)
-			log.Info(ctx, "getting documents", log.Data{"docs in transformedResChan": transformedResChan})
-			// Then append those Document items to the other Documents in the docChannels
+			resourceChan := resourceGetter(ctx, t, errChan, upstreamServiceClients[i], cfg.UpstreamPaginationLimit, cfg.MaxUpstreamExtractions)
+			transformedResChan := resourceTransformer(ctx, t, errChan, resourceChan, cfg.MaxUpstreamTransforms)
 			docChannels = append(docChannels, transformedResChan)
 		}
 	}
@@ -162,6 +151,8 @@ func reindex(ctx context.Context, cfg *config.Config) error {
 
 	ticker := time.NewTicker(cfg.TrackerInterval)
 	defer ticker.Stop()
+
+	// End of main concurrent section
 
 	for done := false; !done; {
 		select {
@@ -182,168 +173,6 @@ func reindex(ctx context.Context, cfg *config.Config) error {
 	}
 
 	return nil
-}
-
-func uriProducer(ctx context.Context, tracker *Tracker, errorChan chan error, z clients.ZebedeeClient) chan string {
-	uriChan := make(chan string, defaultChannelBuffer)
-	go func() {
-		defer close(uriChan)
-		items, err := getPublishedURIs(ctx, z)
-		if err != nil {
-			errorChan <- err
-			return
-		}
-		for _, item := range items {
-			// Exclude previous versions of any release (e.g., v1, v2, etc.)
-			if strings.Contains(item.URI, "/previous/") {
-				log.Info(ctx, "not indexing uri as release is a previous version", log.Data{
-					"uri": item.URI,
-				})
-			} else {
-				uriChan <- item.URI
-				tracker.Inc("uri")
-			}
-		}
-		log.Info(ctx, "finished listing uris")
-	}()
-	return uriChan
-}
-
-func getPublishedURIs(ctx context.Context, z clients.ZebedeeClient) ([]zebedee.PublishedIndexItem, error) {
-	index, err := z.GetPublishedIndex(ctx, &zebedee.PublishedIndexRequestParams{})
-	if err != nil {
-		log.Error(ctx, "error getting index from zebedee", err)
-		return nil, err
-	}
-	log.Info(ctx, "fetched uris from zebedee", log.Data{"count": index.Count})
-	return index.Items, nil
-}
-
-func docExtractor(ctx context.Context, tracker *Tracker, errorChan chan error, z clients.ZebedeeClient, uriChan chan string, maxExtractions int) (extractedChan chan Document) {
-	extractedChan = make(chan Document, defaultChannelBuffer)
-	go func() {
-		defer close(extractedChan)
-
-		var wg sync.WaitGroup
-
-		for w := 0; w < maxExtractions; w++ {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				extractDoc(ctx, tracker, errorChan, z, uriChan, extractedChan)
-			}()
-		}
-		wg.Wait()
-		log.Info(ctx, "finished extracting docs")
-	}()
-	return
-}
-
-// getResourceItems gets the specified maximum number of Resources from the upstream service and then puts each Resource item into a channel, which it returns.
-func getResourceItems(ctx context.Context, errChan chan error, upstreamStubClient *upstreamStubSDK.Client, maxExtractions int) (resourcesChan chan upstreamModels.Resource) {
-	resourcesChan = make(chan upstreamModels.Resource, defaultChannelBuffer)
-	go func() {
-		defer close(resourcesChan)
-
-		var opts upstreamStubSDK.Options
-		opts.Limit(strconv.Itoa(maxExtractions))
-		resources, err := upstreamStubClient.GetResources(ctx, opts)
-		if err != nil {
-			errChan <- err
-			log.Error(ctx, "failed to get resources from upstream service", err, log.Data{"options": opts})
-			return
-		}
-
-		resourceList := resources.Items
-		numItems := len(resourceList)
-
-		for i := 0; i < numItems; i++ {
-			resourcesChan <- resourceList[i]
-		}
-
-		log.Info(ctx, "finished getting resources")
-	}()
-	return resourcesChan
-}
-
-func extractDoc(ctx context.Context, tracker *Tracker, errorChan chan error, z clients.ZebedeeClient, uriChan <-chan string, extractedChan chan Document) {
-	for uri := range uriChan {
-		body, err := z.GetPublishedData(ctx, uri)
-		if err != nil {
-			errorChan <- err
-			log.Error(ctx, "failed to extract doc from zebedee", err, log.Data{"uri": uri})
-			continue
-		}
-
-		extractedDoc := Document{
-			URI:  uri,
-			Body: body,
-		}
-		extractedChan <- extractedDoc
-		tracker.Inc("doc-extracted")
-	}
-}
-
-func docTransformer(ctx context.Context, tracker *Tracker, errChan chan error, extractedChan chan Document, maxTransforms int, topicsMapChan chan map[string]Topic) chan Document {
-	var topicsMap map[string]Topic
-	for tm := range topicsMapChan {
-		topicsMap = tm
-	}
-	transformedChan := make(chan Document, defaultChannelBuffer)
-	go func() {
-		var wg sync.WaitGroup
-		for i := 0; i < maxTransforms; i++ {
-			wg.Add(1)
-			go func(wg *sync.WaitGroup) {
-				transformZebedeeDoc(ctx, tracker, errChan, extractedChan, transformedChan, topicsMap)
-				wg.Done()
-			}(&wg)
-		}
-		wg.Wait()
-		close(transformedChan)
-		log.Info(ctx, "finished transforming zebedee docs")
-	}()
-	return transformedChan
-}
-
-func resourceTransformer(ctx context.Context, tracker *Tracker, errChan chan error, resourceChan chan upstreamModels.Resource, maxTransforms int, topicsMapChan chan map[string]Topic) chan Document {
-	var topicsMap map[string]Topic
-	for tm := range topicsMapChan {
-		topicsMap = tm
-	}
-	transformedResChan := make(chan Document, defaultChannelBuffer)
-	go func() {
-		var wg sync.WaitGroup
-		for i := 0; i < maxTransforms; i++ {
-			wg.Add(1)
-			go func(wg *sync.WaitGroup) {
-				transformResourceItem(ctx, tracker, errChan, resourceChan, transformedResChan, topicsMap)
-				wg.Done()
-			}(&wg)
-		}
-		wg.Wait()
-		close(transformedResChan)
-		log.Info(ctx, "finished transforming resource items")
-	}()
-	return transformedResChan
-}
-
-func metaDataTransformer(ctx context.Context, tracker *Tracker, errChan chan error, metadataChan chan *dataset.Metadata, maxTransforms int) chan Document {
-	transformedChan := make(chan Document, defaultChannelBuffer)
-	go func() {
-		var wg sync.WaitGroup
-		for i := 0; i < maxTransforms; i++ {
-			wg.Add(1)
-			go func(wg *sync.WaitGroup) {
-				transformMetadataDoc(ctx, tracker, errChan, metadataChan, transformedChan)
-				wg.Done()
-			}(&wg)
-		}
-		wg.Wait()
-		close(transformedChan)
-		log.Info(ctx, "finished transforming metadata")
-	}()
-	return transformedChan
 }
 
 func joinDocChannels(ctx context.Context, tracker *Tracker, inChans ...chan Document) chan Document {
@@ -367,216 +196,6 @@ func joinDocChannels(ctx context.Context, tracker *Tracker, inChans ...chan Docu
 		log.Info(ctx, "finished joining transformed docs channels")
 	}()
 	return outChan
-}
-
-func transformZebedeeDoc(ctx context.Context, tracker *Tracker, errChan chan error, extractedChan chan Document, transformedChan chan<- Document, topicsMap map[string]Topic) {
-	for extractedDoc := range extractedChan {
-		var zebedeeData extractorModels.ZebedeeData
-		err := json.Unmarshal(extractedDoc.Body, &zebedeeData)
-		if err != nil {
-			log.Error(ctx, "error while attempting to unmarshal zebedee response into zebedeeData", err,
-				log.Data{"document": extractedDoc})
-			errChan <- err
-		}
-		if zebedeeData.Description.Title == "" {
-			// Don't want to index things without title
-			tracker.Inc("untransformed-notitle")
-			continue // move on to the next extracted doc
-		}
-
-		if !isEditorialSeries(zebedeeData.DataType) && zebedeeData.Description.MigrationLink != "" {
-			// Do not index if not editorial series and has migrationLink
-			log.Info(ctx, "content migrated - not indexing", log.Data{
-				"uri": zebedeeData.URI,
-			})
-			tracker.Inc("doc-migrated")
-			continue
-		}
-
-		exporterEventData := extractorModels.MapZebedeeDataToSearchDataImport(zebedeeData, -1)
-		importerEventData := convertToSearchDataModel(exporterEventData)
-		if topicsMap != nil {
-			importerEventData = tagImportDataTopics(topicsMap, importerEventData)
-			if len(importerEventData.Topics) == 0 {
-				tracker.Inc("docs-topic-untagged")
-				log.Warn(ctx, "untagged topic document",
-					log.Data{"URI": importerEventData.URI})
-			} else {
-				tracker.Inc("docs-topic-tagged")
-			}
-		}
-		esModel := transform.NewTransformer().TransformEventModelToEsModel(&importerEventData)
-
-		body, err := json.Marshal(esModel)
-		if err != nil {
-			log.Error(ctx, "error marshal to json", err)
-			errChan <- err
-		}
-
-		transformedDoc := Document{
-			ID:   exporterEventData.UID,
-			URI:  extractedDoc.URI,
-			Body: body,
-		}
-		transformedChan <- transformedDoc
-		tracker.Inc("doc-transformed")
-	}
-}
-
-func transformResourceItem(ctx context.Context, tracker *Tracker, errChan chan error, resourceChan chan upstreamModels.Resource, transformedChan chan<- Document, topicsMap map[string]Topic) {
-	for resourceItem := range resourceChan {
-		if resourceItem.Title == "" {
-			// Don't want to index things without title
-			tracker.Inc("untransformed-res-notitle")
-			continue // move on to the next resource item
-		}
-		// Map the data from the Resource into a new exporterEventData object of type dp-search-data-extractor/models.SearchDataImport
-		exporterEventData := MapResourceToSearchDataImport(resourceItem)
-		// Convert the exporterEventData object into one of type dp-search-data-importer/models.SearchDataImport
-		importerEventData := convertToSearchDataModel(exporterEventData)
-		if topicsMap != nil {
-			importerEventData = tagImportDataTopics(topicsMap, importerEventData)
-			if len(importerEventData.Topics) == 0 {
-				tracker.Inc("docs-topic-untagged")
-				log.Warn(ctx, "untagged topic document",
-					log.Data{"URI": importerEventData.URI})
-			} else {
-				tracker.Inc("docs-topic-tagged")
-			}
-		}
-		esModel := transform.NewTransformer().TransformEventModelToEsModel(&importerEventData)
-
-		body, err := json.Marshal(esModel)
-		if err != nil {
-			log.Error(ctx, "error marshal to json", err)
-			errChan <- err
-		}
-
-		transformedDoc := Document{
-			ID:   exporterEventData.UID,
-			URI:  resourceItem.URI,
-			Body: body,
-		}
-		transformedChan <- transformedDoc
-		tracker.Inc("doc-transformed")
-	}
-}
-
-func retrieveTopicsMap(ctx context.Context, errorChan chan error, enabled bool, serviceAuthToken string, topicClient topicCli.Clienter) chan map[string]Topic {
-	topicsMapChan := make(chan map[string]Topic, 1)
-
-	go func() {
-		defer close(topicsMapChan)
-		if enabled {
-			topicsMap, err := LoadTopicsMap(ctx, serviceAuthToken, topicClient)
-			if err != nil {
-				errorChan <- err
-				return
-			}
-			topicsMapChan <- topicsMap
-			log.Info(ctx, "finished retrieving topics map", log.Data{"map_size": len(topicsMap)})
-		} else {
-			log.Info(ctx, "topic map retrieval disabled")
-		}
-	}()
-
-	return topicsMapChan
-}
-
-// Auto tag import data topics based on the URI segments of the request
-func tagImportDataTopics(topicsMap map[string]Topic, importerEventData importerModels.SearchDataImport) importerModels.SearchDataImport {
-	// Set to track unique topic IDs
-	uniqueTopics := make(map[string]struct{})
-
-	// Add existing topics in searchData.Topics
-	for _, topicID := range importerEventData.Topics {
-		if _, exists := uniqueTopics[topicID]; !exists {
-			uniqueTopics[topicID] = struct{}{}
-		}
-	}
-
-	// Break URI into segments and exclude the last segment
-	uriSegments := strings.Split(importerEventData.URI, "/")
-
-	// Add topics based on URI segments, starting from root or contextually relevant topic
-	parentSlug := ""
-	for _, segment := range uriSegments {
-		AddTopicWithParents(segment, parentSlug, topicsMap, uniqueTopics)
-		parentSlug = segment // Update parentSlug for the next iteration
-	}
-
-	// Convert set to slice
-	importerEventData.Topics = make([]string, 0, len(uniqueTopics))
-	for topicID := range uniqueTopics {
-		importerEventData.Topics = append(importerEventData.Topics, topicID)
-	}
-
-	return importerEventData
-}
-
-// AddTopicWithParents adds a topic and its parents to the uniqueTopics map if they don't already exist.
-// It recursively adds parent topics until it reaches the root topic.
-func AddTopicWithParents(slug, parentSlug string, topicsMap map[string]Topic, uniqueTopics map[string]struct{}) {
-	for _, topic := range topicsMap {
-		// Find the topic by matching both slug and parentSlug
-		if topic.Slug == slug && topic.ParentSlug == parentSlug {
-			if _, alreadyProcessed := uniqueTopics[topic.ID]; !alreadyProcessed {
-				uniqueTopics[topic.ID] = struct{}{}
-				if topic.ParentSlug != "" {
-					// Recursively add the parent topic
-					AddTopicWithParents(topic.ParentSlug, "", topicsMap, uniqueTopics)
-				}
-			}
-			return // Stop processing once the correct topic is found and added
-		}
-	}
-}
-
-func transformMetadataDoc(ctx context.Context, tracker *Tracker, errChan chan error, metadataChan chan *dataset.Metadata, transformedChan chan<- Document) {
-	for m := range metadataChan {
-		uri := extractorModels.GetURI(m)
-
-		parsedURI, err := url.Parse(uri)
-		if err != nil {
-			log.Error(ctx, "error occurred while parsing url", err)
-			errChan <- err
-		}
-
-		datasetID, edition, _, getIDErr := getIDsFromURI(uri)
-		if getIDErr != nil {
-			datasetID = m.DatasetDetails.ID
-			edition = m.DatasetDetails.Links.Edition.ID
-		}
-
-		searchDataImport := &extractorModels.SearchDataImport{
-			UID:       m.DatasetDetails.ID,
-			URI:       parsedURI.Path,
-			Edition:   edition,
-			DatasetID: datasetID,
-			DataType:  "dataset_landing_page",
-		}
-
-		if err = searchDataImport.MapDatasetMetadataValues(context.Background(), m); err != nil {
-			log.Error(ctx, "error occurred while mapping dataset metadata values", err)
-			errChan <- err
-		}
-
-		importerEventData := convertToSearchDataModel(*searchDataImport)
-		esModel := transform.NewTransformer().TransformEventModelToEsModel(&importerEventData)
-		body, err := json.Marshal(esModel)
-		if err != nil {
-			log.Error(ctx, "error marshal to json", err)
-			errChan <- err
-		}
-
-		transformedDoc := Document{
-			ID:   searchDataImport.UID,
-			URI:  parsedURI.Path,
-			Body: body,
-		}
-		transformedChan <- transformedDoc
-		tracker.Inc("meta-transform")
-	}
 }
 
 func docIndexer(ctx context.Context, tracker *Tracker, errorChan chan error, dpEsIndexClient dpEsClient.Client, transformedChan chan Document) chan bool {
@@ -650,6 +269,7 @@ func swapAliases(ctx context.Context, dpEsIndexClient dpEsClient.Client, indexNa
 		log.Error(ctx, "error swapping aliases: %v", updateAliasErr)
 		return updateAliasErr
 	}
+	log.Info(ctx, "swapped aliases", log.Data{"index_name": indexName})
 	return nil
 }
 
@@ -725,126 +345,6 @@ func deleteIndicies(ctx context.Context, dpEsIndexClient dpEsClient.Client, indi
 	return nil
 }
 
-func extractDatasets(ctx context.Context, tracker *Tracker, errChan chan error, datasetClient clients.DatasetAPIClient, serviceAuthToken string, paginationLimit int) (chan dataset.Dataset, *sync.WaitGroup) {
-	datasetChan := make(chan dataset.Dataset, defaultChannelBuffer)
-	var wg sync.WaitGroup
-
-	// extractAll extracts all datasets from datasetAPI in batches of up to 'PaginationLimit' size
-	extractAll := func() {
-		defer func() {
-			close(datasetChan)
-			wg.Done()
-		}()
-		var list dataset.List
-		var err error
-		var offset = 0
-		for {
-			list, err = datasetClient.GetDatasets(ctx, "", serviceAuthToken, "", &dataset.QueryParams{
-				Offset: offset,
-				Limit:  paginationLimit,
-			})
-			if err != nil {
-				log.Error(ctx, "error retrieving datasets", err)
-				errChan <- err
-			}
-			log.Info(ctx, "got datasets batch", log.Data{
-				"count":       list.Count,
-				"total_count": list.TotalCount,
-				"offset":      list.Offset,
-			})
-
-			if len(list.Items) == 0 {
-				break
-			}
-			for i := 0; i < len(list.Items); i++ {
-				datasetChan <- list.Items[i]
-				tracker.Inc("dataset")
-			}
-			offset += paginationLimit
-
-			if offset > list.TotalCount {
-				break
-			}
-		}
-	}
-
-	wg.Add(1)
-	go extractAll()
-
-	return datasetChan, &wg
-}
-
-func retrieveDatasetEditions(ctx context.Context, tracker *Tracker, datasetClient clients.DatasetAPIClient, datasetChan chan dataset.Dataset, serviceAuthToken string, maxExtractions int) (chan DatasetEditionMetadata, *sync.WaitGroup) {
-	editionMetadataChan := make(chan DatasetEditionMetadata, defaultChannelBuffer)
-	var wg sync.WaitGroup
-	go func() {
-		defer close(editionMetadataChan)
-		for i := 0; i < maxExtractions; i++ {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				for dataSet := range datasetChan {
-					if dataSet.Current == nil {
-						continue
-					}
-					editions, err := datasetClient.GetFullEditionsDetails(ctx, "", serviceAuthToken, dataSet.CollectionID, dataSet.Current.ID)
-					if err != nil {
-						log.Warn(ctx, "error retrieving editions", log.Data{
-							"err":           err,
-							"dataset_id":    dataSet.Current.ID,
-							"collection_id": dataSet.CollectionID,
-						})
-						continue
-					}
-					for i := 0; i < len(editions); i++ {
-						if editions[i].ID == "" || editions[i].Current.Links.LatestVersion.ID == "" {
-							continue
-						}
-						editionMetadataChan <- DatasetEditionMetadata{
-							id:        dataSet.Current.ID,
-							editionID: editions[i].Current.Edition,
-							version:   editions[i].Current.Links.LatestVersion.ID,
-						}
-						tracker.Inc("editions")
-					}
-				}
-			}()
-		}
-		wg.Wait()
-	}()
-	return editionMetadataChan, &wg
-}
-
-func retrieveLatestMetadata(ctx context.Context, tracker *Tracker, datasetClient clients.DatasetAPIClient, editionMetadata chan DatasetEditionMetadata, serviceAuthToken string, maxExtractions int) (chan *dataset.Metadata, *sync.WaitGroup) {
-	metadataChan := make(chan *dataset.Metadata, defaultChannelBuffer)
-	var wg sync.WaitGroup
-	go func() {
-		defer close(metadataChan)
-		for i := 0; i < maxExtractions; i++ {
-			wg.Add(1)
-			go func() {
-				for edMetadata := range editionMetadata {
-					metadata, err := datasetClient.GetVersionMetadata(ctx, "", serviceAuthToken, "", edMetadata.id, edMetadata.editionID, edMetadata.version)
-					if err != nil {
-						log.Warn(ctx, "failed to retrieve dataset version metadata", log.Data{
-							"err":        err,
-							"dataset_id": edMetadata.id,
-							"edition":    edMetadata.editionID,
-							"version":    edMetadata.version,
-						})
-						continue
-					}
-					metadataChan <- &metadata
-					tracker.Inc("metadata")
-				}
-				wg.Done()
-			}()
-		}
-		wg.Wait()
-	}()
-	return metadataChan, &wg
-}
-
 func convertToSearchDataModel(searchDataImport extractorModels.SearchDataImport) importerModels.SearchDataImport {
 	searchDIM := importerModels.SearchDataImport{
 		UID:             searchDataImport.UID,
@@ -909,13 +409,4 @@ func getIDsFromURI(uri string) (datasetID, editionID, versionID string, err erro
 	editionID = s[4]
 	versionID = s[6]
 	return
-}
-
-func isEditorialSeries(contentType string) bool {
-	editorialSeries := map[string]bool{
-		"bulletin":                true,
-		"article":                 true,
-		"compendium_landing_page": true,
-	}
-	return editorialSeries[contentType]
 }
