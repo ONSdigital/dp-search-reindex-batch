@@ -37,7 +37,7 @@ func TestURIProducer(t *testing.T) {
 			uriChan := uriProducer(ctx, tracker, errChan, zebClient)
 
 			convey.Convey("Then the expected uris are sent to the uris channel", func() {
-				uris := make([]string, 3)
+				uris := make([]string, 0, 3)
 				for uri := range uriChan {
 					fmt.Println(uri)
 					uris = append(uris, uri)
