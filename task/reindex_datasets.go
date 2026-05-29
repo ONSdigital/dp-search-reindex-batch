@@ -13,6 +13,10 @@ import (
 	"github.com/ONSdigital/log.go/v2/log"
 )
 
+const (
+	offsetLabel = "offset"
+)
+
 // DatasetEditionMetadata holds the necessary information for a dataset edition, plus isBasedOn
 type DatasetEditionMetadata struct {
 	id        string
@@ -45,7 +49,7 @@ func extractDatasets(ctx context.Context, tracker *Tracker, errChan chan error, 
 			log.Info(ctx, "got datasets batch", log.Data{
 				"count":       list.Count,
 				"total_count": list.TotalCount,
-				"offset":      list.Offset,
+				offsetLabel:   list.Offset,
 			})
 
 			if len(list.Items) == 0 {

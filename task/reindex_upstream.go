@@ -40,7 +40,7 @@ func resourceGetter(ctx context.Context, tracker *Tracker, errChan chan error, u
 					resources, err := getResourcePage(ctx, upstreamStubClient, pageLimit, offset)
 					if err != nil {
 						errChan <- err
-						log.Error(ctx, "failed to get page of resources from upstream service", err, log.Data{"limit": pageLimit, "offset": offset})
+						log.Error(ctx, "failed to get page of resources from upstream service", err, log.Data{"limit": pageLimit, offsetLabel: offset})
 						continue
 					}
 					// if first page, return the total count so subsequent pages can be triggered
@@ -61,7 +61,7 @@ func getResourcePage(ctx context.Context, upstreamStubClient *sdk.Client, limit,
 	var opts sdk.Options
 	opts.Limit(strconv.Itoa(limit))
 	opts.Offset(strconv.Itoa(offset))
-	log.Info(ctx, "getting page of resources from upstream", log.Data{"limit": limit, "offset": offset})
+	log.Info(ctx, "getting page of resources from upstream", log.Data{"limit": limit, offsetLabel: offset})
 	res, err := upstreamStubClient.GetResources(ctx, opts)
 	return res, err
 }

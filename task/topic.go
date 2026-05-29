@@ -9,7 +9,11 @@ import (
 	"github.com/ONSdigital/log.go/v2/log"
 )
 
-const tokenBearer = "Bearer "
+const (
+	tokenBearer  = "Bearer "
+	topicIDLabel = "topic_id"
+	depthLabel   = "depth"
+)
 
 type Topic struct {
 	ID              string
@@ -63,15 +67,15 @@ func LoadTopicsMap(ctx context.Context, serviceAuthToken string, topicClient top
 
 func processTopic(ctx context.Context, serviceAuthToken string, topicClient topicCli.Clienter, topicID string, topicMap map[string]Topic, processedTopics map[string]struct{}, parentTopicID, parentTopicSlug string, depth int) error {
 	log.Info(ctx, "Processing topic at depth", log.Data{
-		"topic_id": topicID,
-		"depth":    depth,
+		topicIDLabel: topicID,
+		depthLabel:   depth,
 	})
 
 	// Check if the topic has already been processed
 	if _, exists := processedTopics[topicID]; exists {
 		log.Info(ctx, "Skipping already processed topic", log.Data{
-			"topic_id": topicID,
-			"depth":    depth,
+			topicIDLabel: topicID,
+			depthLabel:   depth,
 		})
 	}
 
@@ -79,8 +83,8 @@ func processTopic(ctx context.Context, serviceAuthToken string, topicClient topi
 	topic, err := topicClient.GetTopicPrivate(ctx, topicCli.Headers{ServiceAuthToken: tokenBearer + serviceAuthToken}, topicID)
 	if err != nil {
 		log.Error(ctx, "failed to get topic details from topic-api", err, log.Data{
-			"topic_id": topicID,
-			"depth":    depth,
+			topicIDLabel: topicID,
+			depthLabel:   depth,
 		})
 		return err
 	}
@@ -89,10 +93,10 @@ func processTopic(ctx context.Context, serviceAuthToken string, topicClient topi
 		// Check for duplicate slug
 		if _, slugExists := topicMap[topic.Current.Slug]; slugExists {
 			log.Info(ctx, "duplicate slug detected", log.Data{
-				"slug":      topic.Current.Slug,
-				"topic_id":  topicID,
-				"parent_id": parentTopicID,
-				"depth":     depth,
+				"slug":       topic.Current.Slug,
+				topicIDLabel: topicID,
+				"parent_id":  parentTopicID,
+				depthLabel:   depth,
 			})
 		}
 

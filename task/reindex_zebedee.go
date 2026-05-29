@@ -15,6 +15,8 @@ import (
 	"github.com/ONSdigital/log.go/v2/log"
 )
 
+const uriLabel = "uri"
+
 func uriProducer(ctx context.Context, tracker *Tracker, errorChan chan error, z clients.ZebedeeClient) chan string {
 	uriChan := make(chan string, defaultChannelBuffer)
 	go func() {
@@ -28,7 +30,7 @@ func uriProducer(ctx context.Context, tracker *Tracker, errorChan chan error, z 
 			// Exclude previous versions of any release (e.g., v1, v2, etc.)
 			if strings.Contains(item.URI, "/previous/") {
 				log.Info(ctx, "not indexing uri as release is a previous version", log.Data{
-					"uri": item.URI,
+					uriLabel: item.URI,
 				})
 			} else {
 				uriChan <- item.URI
@@ -75,7 +77,7 @@ func extractDoc(ctx context.Context, tracker *Tracker, errorChan chan error, z c
 		body, err := z.GetPublishedData(ctx, uri)
 		if err != nil {
 			errorChan <- err
-			log.Error(ctx, "failed to extract doc from zebedee", err, log.Data{"uri": uri})
+			log.Error(ctx, "failed to extract doc from zebedee", err, log.Data{uriLabel: uri})
 			continue
 		}
 
@@ -128,7 +130,7 @@ func transformZebedeeDoc(ctx context.Context, tracker *Tracker, errChan chan err
 		if !isEditorialSeries(zebedeeData.DataType) && zebedeeData.Description.MigrationLink != "" {
 			// Do not index if not editorial series and has migrationLink
 			log.Info(ctx, "content migrated - not indexing", log.Data{
-				"uri": zebedeeData.URI,
+				uriLabel: zebedeeData.URI,
 			})
 			tracker.Inc("doc-migrated")
 			continue
@@ -141,7 +143,7 @@ func transformZebedeeDoc(ctx context.Context, tracker *Tracker, errChan chan err
 			if len(importerEventData.Topics) == 0 {
 				tracker.Inc("docs-topic-untagged")
 				log.Warn(ctx, "untagged topic document",
-					log.Data{"URI": importerEventData.URI})
+					log.Data{uriLabel: importerEventData.URI})
 			} else {
 				tracker.Inc("docs-topic-tagged")
 			}
