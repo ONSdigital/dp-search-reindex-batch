@@ -1,12 +1,16 @@
 package task
 
 import (
+	"time"
+
 	upstreamModels "github.com/ONSdigital/dis-search-upstream-stub/models"
 	extractorModels "github.com/ONSdigital/dp-search-data-extractor/models"
 )
 
 const (
-	ReleaseDataType = "release"
+	ReleaseDataType             = "release"
+	TaxonomyLandingPageDataType = "taxonomy_landing_page"
+	DateFormat                  = "2006-01-02"
 )
 
 // MapResourceToSearchDataImport Performs default mapping of a Resource item to a SearchDataImport struct.
@@ -41,6 +45,10 @@ func MapResourceToSearchDataImport(resourceItem upstreamModels.SearchContentUpda
 		searchData.Finalised = resourceItem.Finalised
 		searchData.ProvisionalDate = resourceItem.ProvisionalDate
 	}
-
+	if resourceItem.ContentType == TaxonomyLandingPageDataType {
+		searchData.ReleaseDate = time.Now().Format(DateFormat)
+	} else {
+		searchData.ReleaseDate = resourceItem.ReleaseDate
+	}
 	return searchData
 }
