@@ -12,8 +12,8 @@ github.com/ONSdigital/dp-net/v3 v3.9.0 h1:UJsNd36qXhvuGVJIfd6xdKhhUyZlTsxEuPP/2b
 github.com/ONSdigital/dp-net/v3 v3.9.0/go.mod h1:ur4LLCvd2xW2jpa785pElE6HB2bPvszZxdAjqv0XFGg=
 github.com/ONSdigital/dp-search-api v1.49.3 h1:uqCgyR821DqsYgNX3vFCV8klgTJgiXy8+bZl/KMIGKI=
 github.com/ONSdigital/dp-search-api v1.49.3/go.mod h1:edFnmlKRckQcUto7p7Y6zuDxgQpZhDmyytPb87b0oko=
-github.com/ONSdigital/dp-search-data-extractor v1.14.1-0.20260728091502-51ffca0a9029 h1:EHMaO02Vqx5OSI9rGD+wsRO5cXpI/BpdjgUfBGtEtvQ=
-github.com/ONSdigital/dp-search-data-extractor v1.14.1-0.20260728091502-51ffca0a9029/go.mod h1:pVznJBiS8Xlcj8Aorf6a7/1sntXviKAjB0LqjU7pGgg=
+github.com/ONSdigital/dp-search-data-extractor v1.15.0 h1:Ip2iyQVG5yJjLBbsxNkLvbRL863D+T2Y2Wveg3dF0w4=
+github.com/ONSdigital/dp-search-data-extractor v1.15.0/go.mod h1:pVznJBiS8Xlcj8Aorf6a7/1sntXviKAjB0LqjU7pGgg=
 github.com/ONSdigital/dp-search-data-importer v1.3.1 h1:bAkXS12E8sbONrZ02JGxbNWGkkY/VLOXXvIqgiLOVEQ=
 github.com/ONSdigital/dp-search-data-importer v1.3.1/go.mod h1:ItYng6HTGT61PIXwAjIf20HpaP1bqjMZJSjBPnkUmzo=
 github.com/ONSdigital/dp-topic-api v1.3.0 h1:BdQpA9ET46I0qvfjXibmrpNZ5UIB3u4fmmHxHhN6BpM=
