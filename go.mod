@@ -8,7 +8,7 @@ require (
 	github.com/ONSdigital/dp-elasticsearch/v3 v3.0.2
 	github.com/ONSdigital/dp-net/v3 v3.9.0
 	github.com/ONSdigital/dp-search-api v1.49.3
-	github.com/ONSdigital/dp-search-data-extractor v1.15.1-0.20260803134929-b0528cd02354
+	github.com/ONSdigital/dp-search-data-extractor v1.16.0
 	github.com/ONSdigital/dp-search-data-importer v1.3.1
 	github.com/ONSdigital/dp-topic-api v1.3.0
 	github.com/ONSdigital/log.go/v2 v2.5.1
