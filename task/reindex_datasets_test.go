@@ -132,6 +132,53 @@ func TestRetrieveDatasetEditions(t *testing.T) {
 			})
 		})
 	})
+
+	convey.Convey("Given a static dataset whose edition has no ID but a valid LatestVersion.ID", t, func() {
+		staticEditionDetails := []dataset.EditionsDetails{
+			{
+				// no ID — expected for static datasets
+				Current: dataset.Edition{
+					Edition: testEdition,
+					Links: dataset.Links{
+						LatestVersion: dataset.Link{
+							ID: testVersion,
+						},
+					},
+				},
+			},
+		}
+		cli := &mock.DatasetAPIClientMock{
+			GetFullEditionsDetailsFunc: func(ctx context.Context, userAuthToken string, serviceAuthToken string, collectionID string, datasetID string) ([]dataset.EditionsDetails, error) {
+				return staticEditionDetails, nil
+			},
+		}
+		datasetChan := make(chan dataset.Dataset, 1)
+		tracker := &Tracker{}
+
+		convey.Convey("When the static dataset is consumed by retrieveDatasetEditions", func() {
+			datasetChan <- dataset.Dataset{
+				Current: &dataset.DatasetDetails{
+					ID:   testDatasetID,
+					Type: "static",
+				},
+				DatasetDetails: dataset.DatasetDetails{
+					CollectionID: testCollectionID,
+				},
+			}
+			close(datasetChan)
+
+			editionChan, _ := retrieveDatasetEditions(ctx, tracker, cli, datasetChan, testAuthToken, 10)
+
+			convey.Convey("Then the edition is not skipped and is sent to the edition channel", func() {
+				ed := <-editionChan
+				convey.So(ed, convey.ShouldResemble, DatasetEditionMetadata{
+					id:        testDatasetID,
+					editionID: testEdition,
+					version:   testVersion,
+				})
+			})
+		})
+	})
 }
 
 func TestRetrieveLatestMetadata(t *testing.T) {

@@ -95,8 +95,9 @@ func retrieveDatasetEditions(ctx context.Context, tracker *Tracker, datasetClien
 						})
 						continue
 					}
-					for i := 0; i < len(editions); i++ {
-						if editions[i].ID == "" || editions[i].Current.Links.LatestVersion.ID == "" {
+					isStatic := dataSet.Current.Type == "static"
+					for i := range editions {
+						if (editions[i].ID == "" && !isStatic) || editions[i].Current.Links.LatestVersion.ID == "" {
 							continue
 						}
 						editionMetadataChan <- DatasetEditionMetadata{
