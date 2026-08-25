@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/ONSdigital/dp-api-clients-go/v2/zebedee"
-	"github.com/ONSdigital/dp-search-api/clients/mock"
+	"github.com/ONSdigital/dp-search-api/v2/clients/mock"
 	"github.com/ONSdigital/dp-search-data-importer/models"
 	"github.com/smartystreets/goconvey/convey"
 )

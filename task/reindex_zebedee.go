@@ -7,7 +7,7 @@ import (
 	"sync"
 
 	"github.com/ONSdigital/dp-api-clients-go/v2/zebedee"
-	"github.com/ONSdigital/dp-search-api/clients"
+	"github.com/ONSdigital/dp-search-api/v2/clients"
 	extractorModels "github.com/ONSdigital/dp-search-data-extractor/models"
 	importerModels "github.com/ONSdigital/dp-search-data-importer/models"
 	"github.com/ONSdigital/dp-search-data-importer/transform"

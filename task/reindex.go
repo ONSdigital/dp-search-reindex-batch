@@ -13,12 +13,12 @@ import (
 	upstreamStubSDK "github.com/ONSdigital/dis-search-upstream-stub/sdk"
 	"github.com/ONSdigital/dp-api-clients-go/v2/dataset"
 	"github.com/ONSdigital/dp-api-clients-go/v2/zebedee"
-	dpEs "github.com/ONSdigital/dp-elasticsearch/v3"
-	dpEsClient "github.com/ONSdigital/dp-elasticsearch/v3/client"
-	v710 "github.com/ONSdigital/dp-elasticsearch/v3/client/elasticsearch/v710"
+	dpEs "github.com/ONSdigital/dp-elasticsearch/v4"
+	dpEsClient "github.com/ONSdigital/dp-elasticsearch/v4/client"
+	v710 "github.com/ONSdigital/dp-elasticsearch/v4/client/elasticsearch/v710"
 	"github.com/ONSdigital/dp-net/v3/awsauth"
 	dphttp2 "github.com/ONSdigital/dp-net/v3/http"
-	"github.com/ONSdigital/dp-search-api/elasticsearch"
+	"github.com/ONSdigital/dp-search-api/v2/elasticsearch"
 	extractorModels "github.com/ONSdigital/dp-search-data-extractor/models"
 	importerModels "github.com/ONSdigital/dp-search-data-importer/models"
 	"github.com/ONSdigital/dp-search-reindex-batch/config"
@@ -375,12 +375,6 @@ func convertToSearchDataModel(searchDataImport extractorModels.SearchDataImport)
 			ChangeNotice: dateChange.ChangeNotice,
 			Date:         dateChange.Date,
 		})
-	}
-	searchDIM.PopulationType = importerModels.PopulationType{
-		Key:    searchDataImport.PopulationType.Key,
-		AggKey: searchDataImport.PopulationType.AggKey,
-		Name:   searchDataImport.PopulationType.Name,
-		Label:  searchDataImport.PopulationType.Label,
 	}
 	for _, dim := range searchDataImport.Dimensions {
 		searchDIM.Dimensions = append(searchDIM.Dimensions, importerModels.Dimension{

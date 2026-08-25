@@ -69,8 +69,7 @@ func TestTransformResourceItem(t *testing.T) {
 						Date:         "2023-11-21:20:14Z",
 					},
 				},
-				PopulationType: &models2.EsPopulationType{Key: "", AggKey: "", Name: "", Label: ""},
-				Dimensions:     []models2.EsDimension(nil),
+				Dimensions: []models2.EsDimension(nil),
 			}
 
 			resourceChan <- sent
@@ -128,7 +127,6 @@ func TestTransformResourceItem(t *testing.T) {
 				Language:        "string",
 				Survey:          "string",
 				CanonicalTopic:  "string",
-				PopulationType:  &models2.EsPopulationType{Key: "", AggKey: "", Name: "", Label: ""},
 			}
 
 			resourceChan <- sent

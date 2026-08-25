@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/ONSdigital/dp-api-clients-go/v2/dataset"
-	"github.com/ONSdigital/dp-search-api/clients/mock"
+	"github.com/ONSdigital/dp-search-api/v2/clients/mock"
 	"github.com/ONSdigital/dp-search-data-importer/models"
 	"github.com/smartystreets/goconvey/convey"
 )
@@ -254,11 +254,10 @@ func TestTransformMetadataDoc(t *testing.T) {
 			}
 
 			expected := &models.EsModel{
-				DataType:       "dataset_landing_page",
-				URI:            testURI,
-				DatasetID:      testDatasetID,
-				Edition:        testEdition,
-				PopulationType: &models.EsPopulationType{},
+				DataType:  "dataset_landing_page",
+				URI:       testURI,
+				DatasetID: testDatasetID,
+				Edition:   testEdition,
 			}
 
 			metadataChan <- sent
@@ -322,12 +321,6 @@ func TestTransformMetadataDoc(t *testing.T) {
 				URI:       testURI,
 				DatasetID: testDatasetID,
 				Edition:   testEdition,
-				PopulationType: &models.EsPopulationType{
-					Key:    "all-usual-residents-in-households",
-					AggKey: "all-usual-residents-in-households###All usual residents in households",
-					Name:   "UR_HH",
-					Label:  "All usual residents in households",
-				},
 				Dimensions: []models.EsDimension{
 					{Key: "label-1", AggKey: "label-1###label 1", Name: "dim1", RawLabel: "label 1 (10 categories)", Label: "label 1"},
 					{Key: "label-2", AggKey: "label-2###label 2", Name: "dim2", RawLabel: "label 2 (12 Categories)", Label: "label 2"},
@@ -357,7 +350,6 @@ func TestTransformMetadataDoc(t *testing.T) {
 				convey.So(esModel.URI, convey.ShouldEqual, expected.URI)
 				convey.So(esModel.DatasetID, convey.ShouldEqual, expected.DatasetID)
 				convey.So(esModel.Edition, convey.ShouldEqual, expected.Edition)
-				convey.So(esModel.PopulationType, convey.ShouldResemble, expected.PopulationType)
 				convey.So(esModel.Dimensions, convey.ShouldHaveLength, len(expected.Dimensions))
 				for _, dim := range expected.Dimensions {
 					convey.So(esModel.Dimensions, convey.ShouldContain, dim)

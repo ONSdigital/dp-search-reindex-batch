@@ -7,7 +7,7 @@ import (
 	"sync"
 
 	"github.com/ONSdigital/dp-api-clients-go/v2/dataset"
-	"github.com/ONSdigital/dp-search-api/clients"
+	"github.com/ONSdigital/dp-search-api/v2/clients"
 	"github.com/ONSdigital/dp-search-data-extractor/models"
 	"github.com/ONSdigital/dp-search-data-importer/transform"
 	"github.com/ONSdigital/log.go/v2/log"

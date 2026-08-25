@@ -7,9 +7,9 @@ import (
 	"sync"
 	"testing"
 
-	dpEsClient "github.com/ONSdigital/dp-elasticsearch/v3/client"
-	v710 "github.com/ONSdigital/dp-elasticsearch/v3/client/elasticsearch/v710"
-	mocks "github.com/ONSdigital/dp-search-api/clients/mock"
+	dpEsClient "github.com/ONSdigital/dp-elasticsearch/v4/client"
+	v710 "github.com/ONSdigital/dp-elasticsearch/v4/client/elasticsearch/v710"
+	mocks "github.com/ONSdigital/dp-search-api/v2/clients/mock"
 	"github.com/elastic/go-elasticsearch/v7/esutil"
 	. "github.com/smartystreets/goconvey/convey"
 )
