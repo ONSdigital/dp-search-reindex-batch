@@ -121,11 +121,21 @@ func reindex(ctx context.Context, cfg *config.Config) error {
 	// Note the code therefore pretty much immediately runs to the "End of main concurrent section" comment below.
 
 	if cfg.EnableDatasetAPIReindex {
-		datasetChan, _ := extractDatasets(ctx, t, errChan, datasetClient, cfg.ServiceAuthToken, cfg.DatasetPaginationLimit)
+		datasetChan, staticDatasetChan, _ := extractDatasets(ctx, t, errChan, datasetClient, cfg.ServiceAuthToken, cfg.DatasetPaginationLimit)
+
+		// The original datasets pipeline now onnly covers CMD and cantabular datasets, static datasets have their own
+		// pipeline instead below
 		editionChan, _ := retrieveDatasetEditions(ctx, t, datasetClient, datasetChan, cfg.ServiceAuthToken, cfg.MaxDatasetExtractions)
 		metadataChan, _ := retrieveLatestMetadata(ctx, t, datasetClient, editionChan, cfg.ServiceAuthToken, cfg.MaxDatasetExtractions)
 		transformedMetaChan := metaDataTransformer(ctx, t, errChan, metadataChan, cfg.MaxDatasetTransforms)
 		docChannels = append(docChannels, transformedMetaChan)
+
+		// For static datasets we now use a seperate dataset pipeline
+		// TODO this should be deprecated in favour of using the 'Other Services' upstream reindexing instead
+		// This pipeline is therefore a temporary (!) workaroud
+		staticLatestMetadataChan, _ := retrieveLatestStaticMetadata(ctx, t, datasetClient, staticDatasetChan, cfg.ServiceAuthToken, cfg.MaxDatasetExtractions)
+		staticTransformedMetaChan := staticMetaDataTransformer(ctx, t, errChan, staticLatestMetadataChan, cfg.MaxDatasetTransforms)
+		docChannels = append(docChannels, staticTransformedMetaChan)
 	}
 
 	if cfg.EnableZebedeeReindex {

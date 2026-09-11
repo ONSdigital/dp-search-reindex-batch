@@ -45,7 +45,7 @@ func TestExtractDatasets(t *testing.T) {
 		tracker := &Tracker{}
 
 		convey.Convey("Then extractDatasets with a paginationLimit of 2 send all the datasets to the dataset channel", func() {
-			datasetChan, wg := extractDatasets(ctx, tracker, nil, cli, testAuthToken, 2)
+			datasetChan, _, wg := extractDatasets(ctx, tracker, nil, cli, testAuthToken, 2)
 
 			ds1 := <-datasetChan
 			convey.So(ds1, convey.ShouldResemble, dataset.Dataset{ID: "dataset1"})
