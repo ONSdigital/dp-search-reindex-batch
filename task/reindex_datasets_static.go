@@ -4,11 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/url"
 	"regexp"
 	"sync"
 
 	"github.com/ONSdigital/dp-api-clients-go/v2/dataset"
+	"github.com/ONSdigital/dp-api-clients-go/v2/zebedee"
 	"github.com/ONSdigital/dp-search-api/v2/clients"
 	"github.com/ONSdigital/dp-search-data-extractor/models"
 	"github.com/ONSdigital/dp-search-data-importer/transform"
@@ -77,14 +79,19 @@ func getLatestVersionFromURI(ctx context.Context, urlString string) (id, edition
 }
 
 // staticMetaDataTransformer is a modified copy of `metaDataTransformer` specifically for static datasets
-func staticMetaDataTransformer(ctx context.Context, tracker *Tracker, errChan chan error, metadataChan chan *dataset.Metadata, maxTransforms int) chan Document {
+func staticMetaDataTransformer(ctx context.Context, tracker *Tracker, errChan chan error, metadataChan chan *dataset.Metadata, maxTransforms int, topicsMapChan chan map[string]Topic) chan Document {
+	var topicsMap map[string]Topic
+	for tm := range topicsMapChan {
+		topicsMap = tm
+	}
+
 	transformedChan := make(chan Document, defaultChannelBuffer)
 	go func() {
 		var wg sync.WaitGroup
 		for range maxTransforms {
 			wg.Add(1)
 			go func(wg *sync.WaitGroup) {
-				transformStaticMetadataDoc(ctx, tracker, errChan, metadataChan, transformedChan)
+				transformStaticMetadataDoc(ctx, tracker, errChan, metadataChan, transformedChan, topicsMap)
 				wg.Done()
 			}(&wg)
 		}
@@ -96,7 +103,7 @@ func staticMetaDataTransformer(ctx context.Context, tracker *Tracker, errChan ch
 }
 
 // transformStaticMetadataDoc is a modified copy of `transformMetadataDoc` specifically for static datasets
-func transformStaticMetadataDoc(ctx context.Context, tracker *Tracker, errChan chan error, metadataChan chan *dataset.Metadata, transformedChan chan<- Document) {
+func transformStaticMetadataDoc(ctx context.Context, tracker *Tracker, errChan chan error, metadataChan chan *dataset.Metadata, transformedChan chan<- Document, topicsMap map[string]Topic) {
 	for m := range metadataChan {
 		uri := models.GetURI(m)
 
@@ -106,23 +113,20 @@ func transformStaticMetadataDoc(ctx context.Context, tracker *Tracker, errChan c
 			errChan <- err
 		}
 
-		datasetID, edition, _, getIDErr := getLatestVersionFromURI(ctx, uri)
-		if getIDErr != nil {
-			datasetID = m.DatasetDetails.ID
-			edition = m.DatasetDetails.Links.Edition.ID
+		// Get the topic data
+		datasetTopic, err := getDatasetTopic(topicsMap, m)
+		if err != nil {
+			log.Error(ctx, "error occurred while getting dataset topic", err)
+			errChan <- err
+			continue
 		}
 
-		searchDataImport := &models.SearchDataImport{
-			UID:       m.DatasetDetails.ID,
-			URI:       parsedURI.Path,
-			Edition:   edition,
-			DatasetID: datasetID,
-			DataType:  "dataset_landing_page",
-		}
-
-		if err = searchDataImport.MapDatasetMetadataValues(context.Background(), m); err != nil {
+		// Do the mapping - this is separate to the extractor due the different methods of extraction here
+		searchDataImport, err := mapStaticDatasetMetadataValues(m, datasetTopic)
+		if err != nil {
 			log.Error(ctx, "error occurred while mapping static dataset metadata values", err)
 			errChan <- err
+			continue
 		}
 
 		importerEventData := convertToSearchDataModel(*searchDataImport)
@@ -141,4 +145,44 @@ func transformStaticMetadataDoc(ctx context.Context, tracker *Tracker, errChan c
 		transformedChan <- transformedDoc
 		tracker.Inc("static-meta-transform")
 	}
+}
+
+func mapStaticDatasetMetadataValues(metadata *dataset.Metadata, datasetTopic Topic) (searchDataImport *models.SearchDataImport, err error) {
+	if metadata == nil {
+		return nil, fmt.Errorf("nil metadata cannot be mapped")
+	}
+
+	searchDataImport = &models.SearchDataImport{
+		DatasetID:       metadata.DatasetDetails.ID,
+		DataType:        zebedee.PageTypeDatasetLandingPage,
+		Edition:         metadata.EditionTitle,
+		MetaDescription: metadata.Description,
+		ReleaseDate:     metadata.ReleaseDate,
+		Summary:         metadata.Description,
+		Title:           metadata.Title,
+		Topics:          metadata.Topics,
+		UID:             metadata.DatasetDetails.ID,
+		URI:             createStaticDatasetURI(datasetTopic.Slug, metadata.DatasetDetails.ID),
+	}
+
+	if metadata.Keywords != nil {
+		searchDataImport.Keywords = *metadata.Keywords
+	}
+
+	return searchDataImport, nil
+}
+
+func getDatasetTopic(topicsMap map[string]Topic, metadata *dataset.Metadata) (Topic, error) {
+	if metadata == nil || len(metadata.Topics) == 0 {
+		return Topic{}, fmt.Errorf("no topics found in metadata")
+	}
+	topic, ok := topicsMap[metadata.Topics[0]]
+	if !ok {
+		return Topic{}, fmt.Errorf("topic not found in topics map")
+	}
+	return topic, nil
+}
+
+func createStaticDatasetURI(topicSlug, datasetID string) string {
+	return fmt.Sprintf("/%s/datasets/%s", topicSlug, datasetID)
 }

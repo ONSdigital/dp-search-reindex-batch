@@ -38,6 +38,7 @@ type Document struct {
 	Body []byte
 }
 
+//nolint:gocyclo // TODO: refactor this to reduce complexity
 func reindex(ctx context.Context, cfg *config.Config) error {
 	log.Info(ctx, "running reindex script", log.Data{"config": cfg})
 
@@ -120,6 +121,13 @@ func reindex(ctx context.Context, cfg *config.Config) error {
 	// Do not develop code here expecting the functionality to happen in sequence, or you will have unexpected results
 	// Note the code therefore pretty much immediately runs to the "End of main concurrent section" comment below.
 
+	var topicsMapChan chan map[string]Topic
+
+	// Topics are now used by both zebedee and dataset reindexing.
+	if cfg.EnableDatasetAPIReindex || cfg.EnableZebedeeReindex {
+		topicsMapChan = retrieveTopicsMap(ctx, errChan, cfg.TopicTaggingEnabled, cfg.ServiceAuthToken, topicClient)
+	}
+
 	if cfg.EnableDatasetAPIReindex {
 		datasetChan, staticDatasetChan, _ := extractDatasets(ctx, t, errChan, datasetClient, cfg.ServiceAuthToken, cfg.DatasetPaginationLimit)
 
@@ -134,12 +142,11 @@ func reindex(ctx context.Context, cfg *config.Config) error {
 		// TODO this should be deprecated in favour of using the 'Other Services' upstream reindexing instead
 		// This pipeline is therefore a temporary (!) workaroud
 		staticLatestMetadataChan, _ := retrieveLatestStaticMetadata(ctx, t, datasetClient, staticDatasetChan, cfg.ServiceAuthToken, cfg.MaxDatasetExtractions)
-		staticTransformedMetaChan := staticMetaDataTransformer(ctx, t, errChan, staticLatestMetadataChan, cfg.MaxDatasetTransforms)
+		staticTransformedMetaChan := staticMetaDataTransformer(ctx, t, errChan, staticLatestMetadataChan, cfg.MaxDatasetTransforms, topicsMapChan)
 		docChannels = append(docChannels, staticTransformedMetaChan)
 	}
 
 	if cfg.EnableZebedeeReindex {
-		topicsMapChan := retrieveTopicsMap(ctx, errChan, cfg.TopicTaggingEnabled, cfg.ServiceAuthToken, topicClient)
 		urisChan := uriProducer(ctx, t, errChan, zebClient)
 		extractedChan := docExtractor(ctx, t, errChan, zebClient, urisChan, cfg.MaxDocumentExtractions)
 		transformedDocChan := docTransformer(ctx, t, errChan, extractedChan, cfg.MaxDocumentTransforms, topicsMapChan)
