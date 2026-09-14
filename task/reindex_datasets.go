@@ -24,10 +24,10 @@ type DatasetEditionMetadata struct {
 	version   string
 }
 
-func extractDatasets(ctx context.Context, tracker *Tracker, errChan chan error, datasetClient clients.DatasetAPIClient, serviceAuthToken string, paginationLimit int) (chan dataset.Dataset, chan dataset.Dataset, *sync.WaitGroup) {
-	datasetChan := make(chan dataset.Dataset, defaultChannelBuffer)
-	staticDatasetChan := make(chan dataset.Dataset, defaultChannelBuffer)
-	var wg sync.WaitGroup
+func extractDatasets(ctx context.Context, tracker *Tracker, errChan chan error, datasetClient clients.DatasetAPIClient, serviceAuthToken string, paginationLimit int) (datasetChan, staticDatasetChan chan dataset.Dataset, wg *sync.WaitGroup) {
+	datasetChan = make(chan dataset.Dataset, defaultChannelBuffer)
+	staticDatasetChan = make(chan dataset.Dataset, defaultChannelBuffer)
+	wg = &sync.WaitGroup{}
 
 	// extractAll extracts all datasets from datasetAPI in batches of up to 'DatasetPaginationLimit' size
 	extractAll := func() {
@@ -78,7 +78,7 @@ func extractDatasets(ctx context.Context, tracker *Tracker, errChan chan error, 
 	wg.Add(1)
 	go extractAll()
 
-	return datasetChan, staticDatasetChan, &wg
+	return datasetChan, staticDatasetChan, wg
 }
 
 func retrieveDatasetEditions(ctx context.Context, tracker *Tracker, datasetClient clients.DatasetAPIClient, datasetChan chan dataset.Dataset, serviceAuthToken string, maxExtractions int) (chan DatasetEditionMetadata, *sync.WaitGroup) {
