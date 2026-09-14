@@ -123,7 +123,7 @@ func reindex(ctx context.Context, cfg *config.Config) error {
 	if cfg.EnableDatasetAPIReindex {
 		datasetChan, staticDatasetChan, _ := extractDatasets(ctx, t, errChan, datasetClient, cfg.ServiceAuthToken, cfg.DatasetPaginationLimit)
 
-		// The original datasets pipeline now onnly covers CMD and cantabular datasets, static datasets have their own
+		// The original datasets pipeline now only covers CMD and cantabular datasets, static datasets have their own
 		// pipeline instead below
 		editionChan, _ := retrieveDatasetEditions(ctx, t, datasetClient, datasetChan, cfg.ServiceAuthToken, cfg.MaxDatasetExtractions)
 		metadataChan, _ := retrieveLatestMetadata(ctx, t, datasetClient, editionChan, cfg.ServiceAuthToken, cfg.MaxDatasetExtractions)
