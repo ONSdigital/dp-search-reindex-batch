@@ -61,12 +61,12 @@ var versionRegex = regexp.MustCompile(`/datasets/(.+)/editions/(.+)/versions/(.+
 
 // getLatestVersionFromURI is a modified version of `getIDsFromURI` that does not assume a non-versioned path so is more resiliant.
 func getLatestVersionFromURI(ctx context.Context, urlString string) (id, edition, version string, err error) {
-	url, err := url.Parse(urlString)
+	versionURL, err := url.Parse(urlString)
 	if err != nil {
 		log.Error(ctx, "error parsing url", err, log.Data{"url": urlString})
 		return "", "", "", err
 	}
-	path := url.Path
+	path := versionURL.Path
 	parts := versionRegex.FindStringSubmatch(path)
 	if len(parts) != 4 {
 		err = errors.New("invalid latest version path")
