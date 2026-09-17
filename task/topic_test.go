@@ -124,3 +124,51 @@ func TestLoadTopicsMap(t *testing.T) {
 		So(len(topicMap), ShouldEqual, 0)
 	})
 }
+
+func TestLoadTopicsMapForReindex(t *testing.T) {
+	ctx := context.Background()
+	serviceAuthToken := "test-token"
+
+	Convey("When topic tagging is disabled", t, func() {
+		mockClient := &mockTopic.ClienterMock{}
+
+		topicMap, err := loadTopicsMap(ctx, false, serviceAuthToken, mockClient)
+
+		Convey("Then the topic map should be nil and no error should occur", func() {
+			So(err, ShouldBeNil)
+			So(topicMap, ShouldBeNil)
+			So(mockClient.GetRootTopicsPrivateCalls(), ShouldHaveLength, 0)
+		})
+	})
+
+	Convey("When topic tagging is enabled", t, func() {
+		mockClient := &mockTopic.ClienterMock{
+			GetRootTopicsPrivateFunc: func(ctx context.Context, reqHeaders sdk.Headers) (*models.PrivateSubtopics, topicCliErr.Error) {
+				return &models.PrivateSubtopics{
+					TotalCount:   1,
+					PrivateItems: &[]models.TopicResponse{testEconomyRootTopicPrivate},
+				}, nil
+			},
+			GetTopicPrivateFunc: func(ctx context.Context, reqHeaders sdk.Headers, topicID string) (*models.TopicResponse, topicCliErr.Error) {
+				return &models.TopicResponse{
+					ID: topicID,
+					Current: &models.Topic{
+						ID:          topicID,
+						Title:       "Economy",
+						Slug:        "economy",
+						SubtopicIds: &[]string{},
+					},
+				}, nil
+			},
+		}
+
+		topicMap, err := loadTopicsMap(ctx, true, serviceAuthToken, mockClient)
+
+		Convey("Then the topic map should be correctly populated", func() {
+			So(err, ShouldBeNil)
+			So(topicMap, ShouldNotBeNil)
+			So(topicMap["6734"].Slug, ShouldEqual, "economy")
+			So(mockClient.GetRootTopicsPrivateCalls(), ShouldHaveLength, 1)
+		})
+	})
+}

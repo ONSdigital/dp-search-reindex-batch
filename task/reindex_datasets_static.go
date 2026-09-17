@@ -79,12 +79,7 @@ func getLatestVersionFromURI(ctx context.Context, urlString string) (id, edition
 }
 
 // staticMetaDataTransformer is a modified copy of `metaDataTransformer` specifically for static datasets
-func staticMetaDataTransformer(ctx context.Context, tracker *Tracker, errChan chan error, metadataChan chan *dataset.Metadata, maxTransforms int, topicsMapChan chan map[string]Topic) chan Document {
-	var topicsMap map[string]Topic
-	for tm := range topicsMapChan {
-		topicsMap = tm
-	}
-
+func staticMetaDataTransformer(ctx context.Context, tracker *Tracker, errChan chan error, metadataChan chan *dataset.Metadata, maxTransforms int, topicsMap map[string]Topic) chan Document {
 	transformedChan := make(chan Document, defaultChannelBuffer)
 	go func() {
 		var wg sync.WaitGroup

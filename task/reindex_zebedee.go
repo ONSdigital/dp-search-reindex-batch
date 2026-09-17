@@ -90,11 +90,7 @@ func extractDoc(ctx context.Context, tracker *Tracker, errorChan chan error, z c
 	}
 }
 
-func docTransformer(ctx context.Context, tracker *Tracker, errChan chan error, extractedChan chan Document, maxTransforms int, topicsMapChan chan map[string]Topic) chan Document {
-	var topicsMap map[string]Topic
-	for tm := range topicsMapChan {
-		topicsMap = tm
-	}
+func docTransformer(ctx context.Context, tracker *Tracker, errChan chan error, extractedChan chan Document, maxTransforms int, topicsMap map[string]Topic) chan Document {
 	transformedChan := make(chan Document, defaultChannelBuffer)
 	go func() {
 		var wg sync.WaitGroup
@@ -166,25 +162,19 @@ func transformZebedeeDoc(ctx context.Context, tracker *Tracker, errChan chan err
 	}
 }
 
-func retrieveTopicsMap(ctx context.Context, errorChan chan error, enabled bool, serviceAuthToken string, topicClient sdk.Clienter) chan map[string]Topic {
-	topicsMapChan := make(chan map[string]Topic, 1)
+func loadTopicsMap(ctx context.Context, enabled bool, serviceAuthToken string, topicClient sdk.Clienter) (map[string]Topic, error) {
+	if !enabled {
+		log.Info(ctx, "topic map retrieval disabled")
+		return nil, nil
+	}
 
-	go func() {
-		defer close(topicsMapChan)
-		if enabled {
-			topicsMap, err := LoadTopicsMap(ctx, serviceAuthToken, topicClient)
-			if err != nil {
-				errorChan <- err
-				return
-			}
-			topicsMapChan <- topicsMap
-			log.Info(ctx, "finished retrieving topics map", log.Data{"map_size": len(topicsMap)})
-		} else {
-			log.Info(ctx, "topic map retrieval disabled")
-		}
-	}()
+	topicsMap, err := LoadTopicsMap(ctx, serviceAuthToken, topicClient)
+	if err != nil {
+		return nil, err
+	}
 
-	return topicsMapChan
+	log.Info(ctx, "finished retrieving topics map", log.Data{"map_size": len(topicsMap)})
+	return topicsMap, nil
 }
 
 // Auto tag import data topics based on the URI segments of the request
