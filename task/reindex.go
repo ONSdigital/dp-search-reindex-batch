@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	redirectAPI "github.com/ONSdigital/dis-redirect-api/sdk/go"
 	upstreamStubSDK "github.com/ONSdigital/dis-search-upstream-stub/sdk"
 	"github.com/ONSdigital/dp-api-clients-go/v2/dataset"
 	"github.com/ONSdigital/dp-api-clients-go/v2/zebedee"
@@ -90,6 +91,13 @@ func reindex(ctx context.Context, cfg *config.Config) error {
 	topicClient := topicCli.New(cfg.TopicAPIURL)
 	if topicClient == nil {
 		err := errors.New("failed to create topic client")
+		log.Error(ctx, err.Error(), err)
+		return err
+	}
+
+	redirectAPIClient := redirectAPI.NewClient(cfg.RedirectAPIURL)
+	if redirectAPIClient == nil {
+		err := errors.New("failed to create redirect API client")
 		log.Error(ctx, err.Error(), err)
 		return err
 	}

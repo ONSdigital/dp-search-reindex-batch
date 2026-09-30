@@ -48,6 +48,7 @@ type Config struct {
 	DatasetAPIURL              string           `envconfig:"DATASET_API_URL"`
 	ElasticSearchURL           string           `envconfig:"ELASTIC_SEARCH_URL"`
 	EnableDatasetAPIReindex    bool             `envconfig:"ENABLE_DATASET_API_REINDEX"`
+	EnableDatasetRedirects     bool             `envconfig:"ENABLE_DATASET_REDIRECTS"`
 	EnableOtherServicesReindex bool             `envconfig:"ENABLE_OTHER_SERVICES_REINDEX"`
 	EnableZebedeeReindex       bool             `envconfig:"ENABLE_ZEBEDEE_REINDEX"`
 	MaxDatasetExtractions      int              `envconfig:"MAX_DATASET_EXTRACTIONS"`
@@ -59,6 +60,7 @@ type Config struct {
 	OtherUpstreamServices      UpStreamServices `envconfig:"OTHER_UPSTREAM_SERVICES"`
 	DatasetPaginationLimit     int              `envconfig:"DATASET_PAGINATION_LIMIT"`
 	UpstreamPaginationLimit    int              `envconfig:"UPSTREAM_PAGINATION_LIMIT"`
+	RedirectAPIURL             string           `envconfig:"REDIRECT_API_URL"`
 	ServiceAuthToken           string           `envconfig:"SERVICE_AUTH_TOKEN"             json:"-"`
 	SignESRequests             bool             `envconfig:"SIGN_ELASTICSEARCH_REQUESTS"`
 	TopicAPIURL                string           `envconfig:"TOPIC_API_URL"`
@@ -83,6 +85,7 @@ func Get() (*Config, error) {
 		DatasetAPIURL:              "http://localhost:22000",
 		ElasticSearchURL:           "http://localhost:11200",
 		EnableDatasetAPIReindex:    false,
+		EnableDatasetRedirects:     false,
 		EnableOtherServicesReindex: false,
 		EnableZebedeeReindex:       false,
 		MaxDatasetExtractions:      20,
@@ -99,6 +102,7 @@ func Get() (*Config, error) {
 		},
 		DatasetPaginationLimit:  500,
 		UpstreamPaginationLimit: 100,
+		RedirectAPIURL:          "http://localhost:29900",
 		ServiceAuthToken:        "",
 		SignESRequests:          false,
 		TopicAPIURL:             "http://localhost:25300",

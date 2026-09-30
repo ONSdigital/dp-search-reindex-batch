@@ -43,6 +43,8 @@ func TestConfig(t *testing.T) {
 					UpstreamPaginationLimit: 100,
 					ZebedeeTimeout:          3 * time.Minute,
 					EnableDatasetAPIReindex: false,
+					EnableDatasetRedirects:  false,
+					RedirectAPIURL:          "http://localhost:29900",
 					EnableZebedeeReindex:    false,
 					OtherUpstreamServices: UpStreamServices{
 						UpStreamService{

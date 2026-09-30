@@ -33,6 +33,7 @@ We use v2 of golangci-lint, which you will [need to install](https://golangci-li
 | DATASET_PAGINATION_LIMIT      | 500                                        | Number of datasets to fetch per page of requests to Dataset API                                                              |
 | ELASTIC_SEARCH_URL            | "<http://localhost:11200>"                 | URL of elastic search server (or AWS Opensearch)                                                                             |
 | ENABLE_DATASET_API_REINDEX    | false                                      | Whether to get documents from the Dataset API for reindexing or not                                                          |
+| ENABLE_DATASET_REDIRECTS      | false                                      | Whether to retrieve redirects from the Redirect API                                                                          |
 | ENABLE_OTHER_SERVICES_REINDEX | false                                      | Whether to get documents from other upstream services or not                                                                 |
 | ENABLE_TOPIC_TAGGING          | false                                      | Whether to enable topic auto-tagging                                                                                         |
 | ENABLE_ZEBEDEE_REINDEX        | false                                      | Whether to get documents from Zebedee for reindexing or not                                                                  |
@@ -43,6 +44,7 @@ We use v2 of golangci-lint, which you will [need to install](https://golangci-li
 | MAX_UPSTREAM_EXTRACTIONS      | 10                                         | Max number of concurrent Upstream Extractions (ie. Wagtail etc. connections)                                                 |
 | MAX_UPSTREAM_TRANSFORMS       | 10                                         | Max number of concurrent Upstream Transformation workers                                                                     |
 | OTHER_UPSTREAM_SERVICES       | [["http://localhost:29600", "/resources"]] | List of upstream services. Each consisting a host and an endpoint. (See [other_upstream_services](#other_upstream_services)) |
+| REDIRECT_API_URL              | "<http://localhost:29900>"                 | URL of the Redirect API                                                                                                      |
 | SERVICE_AUTH_TOKEN            | ""                                         | Zebedee Service Auth Token for API requests                                                                                  |
 | SIGN_ELASTICSEARCH_REQUESTS   | false                                      | Whether to sign elasticsearch requests (true for AWS)                                                                        |
 | TOPIC_API_URL                 | "<http://localhost:25300>"                 | URL of the Topic API                                                                                                         |
