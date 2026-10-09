@@ -1,6 +1,6 @@
 module github.com/ONSdigital/dp-search-reindex-batch
 
-go 1.26.0
+go 1.27.0
 
 require (
 	github.com/ONSdigital/dis-redirect-api v1.4.0-rc.2.0.20260929140545-5fe5d3bf3fa8
