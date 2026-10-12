@@ -154,7 +154,11 @@ func reindex(ctx context.Context, cfg *config.Config) error {
 		// TODO this should be deprecated in favour of using the 'Other Services' upstream reindexing instead
 		// This pipeline is therefore a temporary (!) workaroud
 		staticLatestMetadataChan, _ := retrieveLatestStaticMetadata(ctx, t, datasetClient, staticDatasetChan, cfg.ServiceAuthToken, cfg.MaxDatasetExtractions)
-		staticTransformedMetaChan := staticMetaDataTransformer(ctx, t, errChan, staticLatestMetadataChan, cfg.MaxDatasetTransforms, topicsMap)
+		staticTransformedMetaChan := staticMetaDataTransformer(ctx, t, errChan, staticLatestMetadataChan, cfg.MaxDatasetTransforms, topicsMap, staticRedirectOptions{
+			client:           redirectAPIClient,
+			enabled:          cfg.EnableDatasetRedirects,
+			serviceAuthToken: cfg.ServiceAuthToken,
+		})
 		docChannels = append(docChannels, staticTransformedMetaChan)
 	}
 
@@ -378,6 +382,7 @@ func convertToSearchDataModel(searchDataImport extractorModels.SearchDataImport)
 	searchDIM := importerModels.SearchDataImport{
 		UID:             searchDataImport.UID,
 		URI:             searchDataImport.URI,
+		PreviousURIs:    searchDataImport.PreviousURIs,
 		DataType:        searchDataImport.DataType,
 		Edition:         searchDataImport.Edition,
 		JobID:           searchDataImport.JobID,

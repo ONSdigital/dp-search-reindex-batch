@@ -3,8 +3,14 @@ package task
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"testing"
 
+	redirectModels "github.com/ONSdigital/dis-redirect-api/models"
+	redirectAPI "github.com/ONSdigital/dis-redirect-api/sdk/go"
+	apiError "github.com/ONSdigital/dis-redirect-api/sdk/go/errors"
+	redirectClientMock "github.com/ONSdigital/dis-redirect-api/sdk/go/mocks"
 	"github.com/ONSdigital/dp-api-clients-go/v2/dataset"
 	"github.com/ONSdigital/dp-search-api/v2/clients/mock"
 	importerModels "github.com/ONSdigital/dp-search-data-importer/models"
@@ -118,7 +124,7 @@ func TestTransformStaticMetadataDoc(t *testing.T) {
 			}
 			close(metadataChan)
 
-			transformStaticMetadataDoc(ctx, tracker, nil, metadataChan, transformedChan, testTopicsMap)
+			transformStaticMetadataDoc(ctx, tracker, nil, metadataChan, transformedChan, testTopicsMap, staticRedirectOptions{})
 
 			Convey("Then it keeps the source document URI and injects the topic slug into the indexed URI", func() {
 				transformed := <-transformedChan
@@ -159,7 +165,7 @@ func TestTransformStaticMetadataDoc(t *testing.T) {
 			}
 			close(metadataChan)
 
-			transformStaticMetadataDoc(ctx, tracker, errChan, metadataChan, transformedChan, testTopicsMap)
+			transformStaticMetadataDoc(ctx, tracker, errChan, metadataChan, transformedChan, testTopicsMap, staticRedirectOptions{})
 
 			Convey("Then it returns an error and does not emit a transformed document", func() {
 				err := <-errChan
@@ -284,6 +290,84 @@ func TestCreateStaticDatasetURI(t *testing.T) {
 
 			Convey("Then it returns the topic-prefixed dataset URI", func() {
 				So(uri, ShouldEqual, "/economy/datasets/TS056")
+			})
+		})
+	})
+}
+
+func TestTransformStaticMetadataDocRedirects(t *testing.T) {
+	Convey("Given static dataset metadata and a redirect client", t, func() {
+		metadataChan := make(chan *dataset.Metadata, 1)
+		metadataChan <- &dataset.Metadata{
+			DatasetDetails: dataset.DatasetDetails{
+				ID:     testDatasetID,
+				Topics: []string{testTopic.ID},
+			},
+		}
+		close(metadataChan)
+
+		var (
+			requestedTarget string
+			indexed         struct {
+				PreviousURIs []string `json:"previous_uris"`
+			}
+		)
+		client := &redirectClientMock.ClienterMock{GetRedirectsFunc: func(_ context.Context, options redirectAPI.Options) (*redirectModels.Redirects, apiError.Error) {
+			requestedTarget = options.Query.Get("to")
+			return &redirectModels.Redirects{
+				RedirectList: []redirectModels.Redirect{
+					{From: "/economy/environmentalaccounts/datasets/TS056"},
+					{From: "/economy/datasets/TS056"},
+				},
+				NextCursor: "0",
+			}, nil
+		}}
+		errChan := make(chan error, 1)
+		transformed := make(chan Document, 1)
+		tracker := &Tracker{}
+		options := staticRedirectOptions{client: client, enabled: true, serviceAuthToken: "testToken"}
+
+		Convey("When the static metadata is transformed with redirects enabled", func() {
+			transformStaticMetadataDoc(context.Background(), tracker, errChan, metadataChan, transformed, testTopicsMap, options)
+
+			Convey("Then the redirect is included in the indexed document", func() {
+				So(client.GetRedirectsCalls(), ShouldHaveLength, 1)
+				So(requestedTarget, ShouldEqual, "/datasets/TS056")
+				So(len(transformed), ShouldEqual, 1)
+				err := json.Unmarshal((<-transformed).Body, &indexed)
+				So(err, ShouldBeNil)
+				So(indexed.PreviousURIs, ShouldHaveLength, 2)
+				So(indexed.PreviousURIs, ShouldContain, "/economy/environmentalaccounts/datasets/TS056")
+				So(indexed.PreviousURIs, ShouldContain, "/economy/datasets/TS056")
+			})
+		})
+
+		Convey("When the static metadata is transformed with redirects disabled", func() {
+			options := staticRedirectOptions{enabled: false}
+			transformStaticMetadataDoc(context.Background(), tracker, errChan, metadataChan, transformed, testTopicsMap, options)
+
+			Convey("Then the document is sent without previous URIs or a redirect lookup", func() {
+				So(client.GetRedirectsCalls(), ShouldHaveLength, 0)
+				So(len(transformed), ShouldEqual, 1)
+				err := json.Unmarshal((<-transformed).Body, &indexed)
+				So(err, ShouldBeNil)
+				So(indexed.PreviousURIs, ShouldBeEmpty)
+			})
+		})
+
+		Convey("When the redirect lookup fails", func() {
+			client.GetRedirectsFunc = func(_ context.Context, _ redirectAPI.Options) (*redirectModels.Redirects, apiError.Error) {
+				return nil, apiError.StatusError{Err: errors.New("redirect API unavailable")}
+			}
+			transformStaticMetadataDoc(context.Background(), tracker, errChan, metadataChan, transformed, testTopicsMap, options)
+
+			Convey("Then the lookup error is returned without a document", func() {
+				So(client.GetRedirectsCalls(), ShouldHaveLength, 1)
+				So(len(transformed), ShouldEqual, 0)
+				So(len(errChan), ShouldEqual, 1)
+				err := <-errChan
+				So(err, ShouldNotBeNil)
+				So(fmt.Sprint(err), ShouldEqual, "get redirects for target URI /datasets/TS056: redirect API unavailable")
 			})
 		})
 	})

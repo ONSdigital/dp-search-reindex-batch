@@ -9,13 +9,21 @@ import (
 	"regexp"
 	"sync"
 
+	redirectAPI "github.com/ONSdigital/dis-redirect-api/sdk/go"
 	"github.com/ONSdigital/dp-api-clients-go/v2/dataset"
 	"github.com/ONSdigital/dp-api-clients-go/v2/zebedee"
 	"github.com/ONSdigital/dp-search-api/v2/clients"
 	"github.com/ONSdigital/dp-search-data-extractor/models"
+	"github.com/ONSdigital/dp-search-data-extractor/redirects"
 	"github.com/ONSdigital/dp-search-data-importer/transform"
 	"github.com/ONSdigital/log.go/v2/log"
 )
+
+type staticRedirectOptions struct {
+	client           redirectAPI.Clienter
+	enabled          bool
+	serviceAuthToken string
+}
 
 // This pipeline stage takes a channel of datasets (which will have been filtered to be just the static ones) and
 // Retrieves the metadata for the latest version of that dataset (as per the Current-Links-LatestVersion uri)
@@ -79,14 +87,14 @@ func getLatestVersionFromURI(ctx context.Context, urlString string) (id, edition
 }
 
 // staticMetaDataTransformer is a modified copy of `metaDataTransformer` specifically for static datasets
-func staticMetaDataTransformer(ctx context.Context, tracker *Tracker, errChan chan error, metadataChan chan *dataset.Metadata, maxTransforms int, topicsMap map[string]Topic) chan Document {
+func staticMetaDataTransformer(ctx context.Context, tracker *Tracker, errChan chan error, metadataChan chan *dataset.Metadata, maxTransforms int, topicsMap map[string]Topic, redirectOptions staticRedirectOptions) chan Document {
 	transformedChan := make(chan Document, defaultChannelBuffer)
 	go func() {
 		var wg sync.WaitGroup
 		for range maxTransforms {
 			wg.Add(1)
 			go func(wg *sync.WaitGroup) {
-				transformStaticMetadataDoc(ctx, tracker, errChan, metadataChan, transformedChan, topicsMap)
+				transformStaticMetadataDoc(ctx, tracker, errChan, metadataChan, transformedChan, topicsMap, redirectOptions)
 				wg.Done()
 			}(&wg)
 		}
@@ -98,7 +106,7 @@ func staticMetaDataTransformer(ctx context.Context, tracker *Tracker, errChan ch
 }
 
 // transformStaticMetadataDoc is a modified copy of `transformMetadataDoc` specifically for static datasets
-func transformStaticMetadataDoc(ctx context.Context, tracker *Tracker, errChan chan error, metadataChan chan *dataset.Metadata, transformedChan chan<- Document, topicsMap map[string]Topic) {
+func transformStaticMetadataDoc(ctx context.Context, tracker *Tracker, errChan chan error, metadataChan chan *dataset.Metadata, transformedChan chan<- Document, topicsMap map[string]Topic, redirectOptions staticRedirectOptions) {
 	for m := range metadataChan {
 		uri := models.GetURI(m)
 
@@ -122,6 +130,15 @@ func transformStaticMetadataDoc(ctx context.Context, tracker *Tracker, errChan c
 			log.Error(ctx, "error occurred while mapping static dataset metadata values", err)
 			errChan <- err
 			continue
+		}
+		if redirectOptions.enabled {
+			targetURI := "/datasets/" + searchDataImport.DatasetID
+			searchDataImport.PreviousURIs, err = redirects.GetPreviousURIs(ctx, redirectOptions.client, targetURI, redirectOptions.serviceAuthToken)
+			if err != nil {
+				log.Error(ctx, "error occurred while getting static dataset redirects", err)
+				errChan <- err
+				continue
+			}
 		}
 
 		importerEventData := convertToSearchDataModel(*searchDataImport)
