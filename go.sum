@@ -22,10 +22,10 @@ github.com/ONSdigital/dp-permissions-api v1.10.0 h1:iAdeeDSX84AJrhljIaVvPyenZP/N
 github.com/ONSdigital/dp-permissions-api v1.10.0/go.mod h1:HfQYvW7eLeJDIBRbwtES8Gr49yJvc4Zs3YgsQZulABk=
 github.com/ONSdigital/dp-search-api/v2 v2.0.1 h1:7OAbeWXjtGALWpfiClToqg5le11laBUFG7P6Vlm5GDM=
 github.com/ONSdigital/dp-search-api/v2 v2.0.1/go.mod h1:J8sVrwmsXyWkL/uJIKrs/DVJO1fxjytCqKlcnaKKMtA=
-github.com/ONSdigital/dp-search-data-extractor v1.17.1 h1:eGu+tmWDmZsO5fYyUtWPv/Myey+szjQoXGoNla+xqoo=
-github.com/ONSdigital/dp-search-data-extractor v1.17.1/go.mod h1:8sEdTgpuv7eJcI3flxq52k/UkHqAHkjIjskJRlWpGXU=
-github.com/ONSdigital/dp-search-data-importer v1.10.1 h1:rYfe7I6FegWB2I8Oe/oUd4GbMMc/3VekTuq7H6YZPhA=
-github.com/ONSdigital/dp-search-data-importer v1.10.1/go.mod h1:eyfGs/jLsaxLf57AzduNIOUTToUFSWjqBlv6rlIl7Ck=
+github.com/ONSdigital/dp-search-data-extractor v1.18.1-0.20261009090726-2e9e1da5f1f9 h1:xq2a8Nulnq1tW//dnqHUcR/YKPpEFwk29zK3utvy0Pw=
+github.com/ONSdigital/dp-search-data-extractor v1.18.1-0.20261009090726-2e9e1da5f1f9/go.mod h1:XdsbhqvtgjliRS1ELzYmxLyowDqe5ifcU6y38aJppY4=
+github.com/ONSdigital/dp-search-data-importer v1.11.1-0.20261009090636-40f79231f970 h1:/GvJY/nJYVjrSyoflOmTpyGy1ycFqoUiLXIT/vTJbTc=
+github.com/ONSdigital/dp-search-data-importer v1.11.1-0.20261009090636-40f79231f970/go.mod h1:I1k9I2d45zP4B9vBJQ0zgu43fuQLk0000dbK0RtdY/I=
 github.com/ONSdigital/dp-topic-api v1.3.0 h1:BdQpA9ET46I0qvfjXibmrpNZ5UIB3u4fmmHxHhN6BpM=
 github.com/ONSdigital/dp-topic-api v1.3.0/go.mod h1:8/+XBghhDoHEmmZQs0GZuzaqWIA19Uj4CphsaxO7CoY=
 github.com/ONSdigital/log.go/v2 v2.5.2 h1:V6NYtbi+thHYTwckxOXPklZUgQCNBo1/fyPPIutu4V4=
