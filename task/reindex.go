@@ -12,6 +12,8 @@ import (
 
 	redirectAPI "github.com/ONSdigital/dis-redirect-api/sdk/go"
 	upstreamStubSDK "github.com/ONSdigital/dis-search-upstream-stub/sdk"
+
+	//nolint:staticcheck // work ongoing to replace dataset with a new implementation
 	"github.com/ONSdigital/dp-api-clients-go/v2/dataset"
 	"github.com/ONSdigital/dp-api-clients-go/v2/zebedee"
 	dpEs "github.com/ONSdigital/dp-elasticsearch/v4"
