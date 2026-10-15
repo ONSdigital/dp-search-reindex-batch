@@ -3,13 +3,13 @@ module github.com/ONSdigital/dp-search-reindex-batch
 go 1.27.0
 
 require (
-	github.com/ONSdigital/dis-redirect-api v1.4.0-rc.2.0.20260929140545-5fe5d3bf3fa8
+	github.com/ONSdigital/dis-redirect-api v1.4.1-0.20261013132838-2b5b3ab73616
 	github.com/ONSdigital/dis-search-upstream-stub v1.12.0
-	github.com/ONSdigital/dp-api-clients-go/v2 v2.285.0
+	github.com/ONSdigital/dp-api-clients-go/v2 v2.287.0
 	github.com/ONSdigital/dp-elasticsearch/v4 v4.0.1
 	github.com/ONSdigital/dp-net/v3 v3.11.0
 	github.com/ONSdigital/dp-search-api/v2 v2.0.1
-	github.com/ONSdigital/dp-search-data-extractor v1.18.1-0.20261009090726-2e9e1da5f1f9
+	github.com/ONSdigital/dp-search-data-extractor v1.18.1-0.20261014151100-838f498c685c
 	github.com/ONSdigital/dp-search-data-importer v1.11.1-0.20261009090636-40f79231f970
 	github.com/ONSdigital/dp-topic-api v1.3.0
 	github.com/ONSdigital/log.go/v2 v2.5.2
@@ -21,7 +21,7 @@ require (
 
 require (
 	github.com/ONSdigital/dis-redis v0.11.0 // indirect
-	github.com/ONSdigital/dp-authorisation/v2 v2.34.0 // indirect
+	github.com/ONSdigital/dp-authorisation/v2 v2.36.0 // indirect
 	github.com/ONSdigital/dp-healthcheck v1.6.4 // indirect
 	github.com/ONSdigital/dp-net/v2 v2.22.0 // indirect
 	github.com/ONSdigital/dp-permissions-api v1.10.0 // indirect
@@ -55,9 +55,10 @@ require (
 	github.com/redis/go-redis/v9 v9.17.2 // indirect
 	github.com/smarty/assertions v1.16.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
-	go.opentelemetry.io/otel v1.45.0 // indirect
-	go.opentelemetry.io/otel/metric v1.45.0 // indirect
-	go.opentelemetry.io/otel/trace v1.45.0 // indirect
-	golang.org/x/net v0.58.0 // indirect
-	golang.org/x/sys v0.48.0 // indirect
+	go.opentelemetry.io/otel v1.47.0 // indirect
+	go.opentelemetry.io/otel/log v1.47.0 // indirect
+	go.opentelemetry.io/otel/metric v1.47.0 // indirect
+	go.opentelemetry.io/otel/trace v1.47.0 // indirect
+	golang.org/x/net v0.61.0 // indirect
+	golang.org/x/sys v0.49.0 // indirect
 )
