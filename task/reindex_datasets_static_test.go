@@ -332,7 +332,7 @@ func TestTransformStaticMetadataDocRedirects(t *testing.T) {
 
 			Convey("Then the redirect is included in the indexed document", func() {
 				So(client.GetRedirectsCalls(), ShouldHaveLength, 1)
-				So(requestedTarget, ShouldEqual, "/datasets/TS056")
+				So(requestedTarget, ShouldEqual, "/economy/datasets/TS056")
 				So(len(transformed), ShouldEqual, 1)
 				err := json.Unmarshal((<-transformed).Body, &indexed)
 				So(err, ShouldBeNil)
@@ -367,7 +367,7 @@ func TestTransformStaticMetadataDocRedirects(t *testing.T) {
 				So(len(errChan), ShouldEqual, 1)
 				err := <-errChan
 				So(err, ShouldNotBeNil)
-				So(fmt.Sprint(err), ShouldEqual, "get redirects for target URI /datasets/TS056: redirect API unavailable")
+				So(fmt.Sprint(err), ShouldEqual, "get redirects for target URI /economy/datasets/TS056: redirect API unavailable")
 			})
 		})
 	})

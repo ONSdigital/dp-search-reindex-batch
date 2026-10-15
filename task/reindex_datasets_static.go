@@ -132,8 +132,7 @@ func transformStaticMetadataDoc(ctx context.Context, tracker *Tracker, errChan c
 			continue
 		}
 		if redirectOptions.enabled {
-			targetURI := "/datasets/" + searchDataImport.DatasetID
-			searchDataImport.PreviousURIs, err = redirects.GetPreviousURIs(ctx, redirectOptions.client, targetURI, redirectOptions.serviceAuthToken)
+			searchDataImport.PreviousURIs, err = redirects.GetPreviousURIs(ctx, redirectOptions.client, searchDataImport.URI, redirectOptions.serviceAuthToken)
 			if err != nil {
 				log.Error(ctx, "error occurred while getting static dataset redirects", err)
 				errChan <- err
