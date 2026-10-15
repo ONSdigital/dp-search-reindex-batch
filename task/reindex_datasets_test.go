@@ -7,6 +7,7 @@ import (
 	"sync"
 	"testing"
 
+	//nolint:staticcheck // work ongoing to replace dataset with a new implementation
 	"github.com/ONSdigital/dp-api-clients-go/v2/dataset"
 	"github.com/ONSdigital/dp-search-api/v2/clients/mock"
 	"github.com/ONSdigital/dp-search-data-importer/models"

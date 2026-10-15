@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	redirectAPI "github.com/ONSdigital/dis-redirect-api/sdk/go"
+	//nolint:staticcheck // work ongoing to replace dataset with a new implementation
 	"github.com/ONSdigital/dp-api-clients-go/v2/dataset"
 	"github.com/ONSdigital/dp-api-clients-go/v2/zebedee"
 	"github.com/ONSdigital/dp-search-api/v2/clients"
@@ -132,8 +133,7 @@ func transformStaticMetadataDoc(ctx context.Context, tracker *Tracker, errChan c
 			continue
 		}
 		if redirectOptions.enabled {
-			targetURI := "/datasets/" + searchDataImport.DatasetID
-			searchDataImport.PreviousURIs, err = redirects.GetPreviousURIs(ctx, redirectOptions.client, targetURI, redirectOptions.serviceAuthToken)
+			searchDataImport.PreviousURIs, err = redirects.GetPreviousURIs(ctx, redirectOptions.client, searchDataImport.URI, redirectOptions.serviceAuthToken)
 			if err != nil {
 				log.Error(ctx, "error occurred while getting static dataset redirects", err)
 				errChan <- err
